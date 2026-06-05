@@ -134,10 +134,10 @@ export default function CAPReport() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <Title level={3} style={{ margin: 0 }}>
-            Delegates with Open CAPs
+            Delegated Entities with Open CAPs
           </Title>
           <Text type="secondary">
-            {capDelegates.length} delegate{capDelegates.length !== 1 ? 's' : ''} with active Corrective Action Plans
+            {capDelegates.length} delegated entit{capDelegates.length !== 1 ? 'ies' : 'y'} with active Corrective Action Plans
           </Text>
         </div>
         <Space>

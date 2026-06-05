@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import { UserProvider } from './context/UserContext';
 import AppLayout from './components/AppLayout';
@@ -14,7 +14,7 @@ export default function App() {
   return (
     <ConfigProvider theme={theme}>
       <UserProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route element={<AppLayout />}>
               <Route path="/" element={<LandingPage />} />
@@ -25,7 +25,7 @@ export default function App() {
               <Route path="/reports/product/:product" element={<ProductReport />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </UserProvider>
     </ConfigProvider>
   );

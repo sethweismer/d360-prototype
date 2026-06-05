@@ -133,7 +133,7 @@ export default function LandingPage() {
   };
 
   // View toggle
-  const [viewMode, setViewMode] = useState('grouped');
+  const [viewMode, setViewMode] = useState('ungrouped');
 
   // Pagination (shared)
   const [currentPage, setCurrentPage] = useState(1);
@@ -141,13 +141,12 @@ export default function LandingPage() {
 
   // Distribution data
   const typeDistribution = useMemo(() => {
-    const counts = {};
+    const entitySets = {};
     allDelegations.forEach((d) => {
-      if (d.status === 'Approved') {
-        counts[d.delegationType] = (counts[d.delegationType] || 0) + 1;
-      }
+      if (!entitySets[d.delegationType]) entitySets[d.delegationType] = new Set();
+      entitySets[d.delegationType].add(d.delegateId);
     });
-    return Object.entries(counts).map(([type, count]) => ({ type, count }));
+    return Object.entries(entitySets).map(([type, ids]) => ({ type, count: ids.size }));
   }, [allDelegations]);
 
   const lobDistribution = useMemo(() => {
@@ -509,7 +508,7 @@ export default function LandingPage() {
           <Space size={10}>
             <TeamOutlined style={{ color: '#004D99', fontSize: 20 }} />
             <Text strong style={{ color: '#004D99', fontSize: 28 }}>{stats.totalDelegates}</Text>
-            <Text type="secondary" style={{ fontSize: 15 }}>Total Delegates</Text>
+            <Text type="secondary" style={{ fontSize: 15 }}>Total Delegated Entities</Text>
           </Space>
           <div style={{ width: 1, height: 32, background: '#DBD8D5' }} />
           <Space size={10}>
@@ -524,7 +523,7 @@ export default function LandingPage() {
       <Title level={3} style={{ marginBottom: 12 }}>Quick Reports</Title>
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col xs={24} md={6}>
-          <Card title="Delegates with Alerts" size="small">
+          <Card title="Delegated Entities with Alerts" size="small">
             <div
               onClick={() => navigate('/reports/open-caps')}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', cursor: 'pointer' }}
@@ -535,7 +534,7 @@ export default function LandingPage() {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card title="Delegates by LOB" size="small">
+          <Card title="Delegated Entities by LOB" size="small">
             {lobDistribution.map((item, i) => (
               <div
                 key={item.lob}
@@ -549,7 +548,7 @@ export default function LandingPage() {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card title="Delegates by Product" size="small">
+          <Card title="Delegated Entities by Product" size="small">
             {productDistribution.map((item, i) => (
               <div
                 key={item.product}
@@ -563,7 +562,7 @@ export default function LandingPage() {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card title="Active Delegations by Type" size="small">
+          <Card title="Delegated Entities by Delegation Type" size="small">
             {typeDistribution.map((item, i) => (
               <div
                 key={item.type}
@@ -589,7 +588,7 @@ export default function LandingPage() {
               }}
             >
               <Title level={3} style={{ margin: 0 }}>
-                Delegates & Delegations
+                Delegated Entities & Delegations
               </Title>
               <Segmented
                 value={viewMode}

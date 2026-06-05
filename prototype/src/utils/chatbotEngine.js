@@ -345,7 +345,7 @@ const INTENTS = [
       !input.includes('delegation'),
     respond: () => {
       const stats = getStats();
-      return `There are ${stats.totalDelegates} delegates in the system, with ${stats.activeDelegations} active delegations.`;
+      return `There are ${stats.totalDelegates} delegated entities in the system, with ${stats.activeDelegations} active delegations.`;
     },
   },
 
@@ -536,7 +536,7 @@ const INTENTS = [
         .map(([type, count]) => `  ${type}: ${count}`)
         .join('\n');
       return `D360 Overview:\n\n` +
-        `  Total Delegates: ${stats.totalDelegates}\n` +
+        `  Total Delegated Entities: ${stats.totalDelegates}\n` +
         `  Total Delegations: ${all.length}\n` +
         `  Active Delegations: ${stats.activeDelegations}\n` +
         `  Overdue Audits: ${stats.overdueAudits}\n` +

@@ -3,13 +3,11 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card,
   Col,
-  Descriptions,
   Typography,
   Tag,
   Row,
   Space,
   Button,
-  Segmented,
   Table,
   Collapse,
   message,
@@ -17,15 +15,9 @@ import {
 } from 'antd';
 import {
   ArrowLeftOutlined,
-  TableOutlined,
   ProfileOutlined,
-  EditOutlined,
-  SaveOutlined,
-  CloseOutlined,
   CopyOutlined,
-  AuditOutlined,
   ContactsOutlined,
-  MailOutlined,
   UserOutlined,
   MedicineBoxOutlined,
   FileProtectOutlined,
@@ -36,7 +28,6 @@ import {
 import delegates, { getDelegationsForDelegate } from '../data/mockData';
 import { useUser } from '../context/UserContext';
 import StatusBadge from '../components/StatusBadge';
-import EditableField from '../components/EditableField';
 import DelegateNotes from '../components/DelegateNotes';
 
 const { Title, Text } = Typography;
@@ -50,49 +41,6 @@ function FieldValue({ value }) {
   return value;
 }
 
-// Hook to manage edit state for a delegation record
-function useEditableDelegation() {
-  const [editingId, setEditingId] = useState(null);
-  const [editValues, setEditValues] = useState({});
-
-  const startEditing = (delegation) => {
-    setEditingId(delegation.id);
-    setEditValues({ ...delegation });
-  };
-
-  const cancelEditing = () => {
-    setEditingId(null);
-    setEditValues({});
-  };
-
-  const handleChange = (field, value) => {
-    setEditValues((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const saveEditing = () => {
-    message.success('Changes saved (prototype — data resets on reload)');
-    setEditingId(null);
-    setEditValues({});
-  };
-
-  return { editingId, editValues, startEditing, cancelEditing, handleChange, saveEditing };
-}
-
-// Renders a field as editable or read-only
-function EditOrDisplay({ field, value, editing, editValues, onChange, displayOverride }) {
-  if (editing) {
-    return (
-      <EditableField
-        field={field}
-        value={editValues[field]}
-        editing={true}
-        onChange={onChange}
-      />
-    );
-  }
-  if (displayOverride) return displayOverride;
-  return <FieldValue value={value} />;
-}
 
 function SummaryField({ label, children }) {
   return (
@@ -256,10 +204,6 @@ function getProductColor(productName) {
 
 // ---- TABLE-FIRST VIEW (grouped by Product) ----
 function TableFirstView({ delegate }) {
-  const { isEditUser } = useUser();
-  const { editingId, editValues, startEditing, cancelEditing, handleChange, saveEditing } =
-    useEditableDelegation();
-
   const totalDelegations = delegate.products.reduce((sum, p) => sum + p.delegations.length, 0);
 
   const columns = [
@@ -294,12 +238,7 @@ function TableFirstView({ delegate }) {
       title: 'Status',
       dataIndex: 'status',
       width: 100,
-      render: (s, record) =>
-        editingId === record.id ? (
-          <EditableField field="status" value={editValues.status} editing onChange={handleChange} />
-        ) : (
-          <StatusBadge status={s} />
-        ),
+      render: (s) => <StatusBadge status={s} />,
     },
     {
       title: 'Effective Date',
@@ -317,43 +256,25 @@ function TableFirstView({ delegate }) {
       title: 'Delegated Services',
       dataIndex: 'delegatedServices',
       width: 180,
-      render: (v, record) =>
-        editingId === record.id ? (
-          <EditableField field="delegatedServices" value={editValues.delegatedServices} editing onChange={handleChange} />
-        ) : (
-          <FieldValue value={v} />
-        ),
+      render: (v) => <FieldValue value={v} />,
     },
     {
       title: 'Oversight Audit Timeline',
       dataIndex: 'oversightAuditTimeline',
       width: 160,
-      render: (v, record) =>
-        editingId === record.id ? (
-          <EditableField field="oversightAuditTimeline" value={editValues.oversightAuditTimeline} editing onChange={handleChange} />
-        ) : (
-          <FieldValue value={v} />
-        ),
+      render: (v) => <FieldValue value={v} />,
     },
     {
       title: 'Last Audit',
       dataIndex: 'lastAuditCompleted',
       width: 130,
-      render: (v, record) =>
-        editingId === record.id ? (
-          <EditableField field="lastAuditCompleted" value={editValues.lastAuditCompleted} editing onChange={handleChange} />
-        ) : (
-          <FieldValue value={v} />
-        ),
+      render: (v) => <FieldValue value={v} />,
     },
     {
       title: 'Next Audit',
       dataIndex: 'nextAuditDue',
       width: 140,
-      render: (v, record) => {
-        if (editingId === record.id) {
-          return <EditableField field="nextAuditDue" value={editValues.nextAuditDue} editing onChange={handleChange} />;
-        }
+      render: (v) => {
         if (!v) return <MissingValue />;
         const isOverdue = v < new Date().toISOString().split('T')[0];
         return <span style={isOverdue ? { color: '#DB3321', fontWeight: 500 } : {}}>{v}</span>;
@@ -364,14 +285,11 @@ function TableFirstView({ delegate }) {
       dataIndex: 'correctiveActionPlan',
       width: 80,
       align: 'center',
-      render: (v, record) =>
-        editingId === record.id ? (
-          <EditableField field="correctiveActionPlan" value={editValues.correctiveActionPlan} editing onChange={handleChange} />
-        ) : v ? (
-          <Tag color="red">Yes</Tag>
-        ) : (
-          <span style={{ color: '#CCC9C6' }}>No</span>
-        ),
+      render: (v) => v ? (
+        <Tag color="red">Yes</Tag>
+      ) : (
+        <span style={{ color: '#CCC9C6' }}>No</span>
+      ),
     },
     {
       title: 'Auth Comm',
@@ -379,9 +297,6 @@ function TableFirstView({ delegate }) {
       width: 120,
       render: (v, record) => {
         if (record.delegationType !== 'Clinical-UM') return <span style={{ color: '#CCC9C6' }}>--</span>;
-        if (editingId === record.id) {
-          return <EditableField field="decisionAuthCommunication" value={editValues.decisionAuthCommunication} editing onChange={handleChange} />;
-        }
         return v ? <Tag color="blue">{v}</Tag> : <MissingValue />;
       },
     },
@@ -391,36 +306,10 @@ function TableFirstView({ delegate }) {
       width: 120,
       render: (v, record) => {
         if (record.delegationType !== 'Claims') return <span style={{ color: '#CCC9C6' }}>--</span>;
-        if (editingId === record.id) {
-          return <EditableField field="encounterSubmission" value={editValues.encounterSubmission} editing onChange={handleChange} />;
-        }
         return <FieldValue value={v} />;
       },
     },
   ];
-
-  if (isEditUser) {
-    columns.push({
-      title: '',
-      key: 'actions',
-      width: 100,
-      fixed: 'right',
-      render: (_, record) =>
-        editingId === record.id ? (
-          <Space>
-            <Button type="primary" size="small" icon={<SaveOutlined />} onClick={saveEditing} />
-            <Button size="small" icon={<CloseOutlined />} onClick={cancelEditing} />
-          </Space>
-        ) : (
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => startEditing(record)}
-          />
-        ),
-    });
-  }
 
   // Group products by LOB
   const lobGroups = useMemo(() => {
@@ -482,10 +371,6 @@ function TableFirstView({ delegate }) {
 
 // ---- ENTITY-DETAIL-FIRST VIEW ----
 function EntityDetailView({ delegate }) {
-  const { isEditUser } = useUser();
-  const { editingId, editValues, startEditing, cancelEditing, handleChange, saveEditing } =
-    useEditableDelegation();
-
   // Flatten all delegations and group by type
   const allDelegations = useMemo(() => getDelegationsForDelegate(delegate), [delegate]);
 
@@ -536,121 +421,79 @@ function EntityDetailView({ delegate }) {
           >
             <Collapse
               defaultActiveKey={grouped[type].map((d) => d.id)}
-              items={grouped[type].map((del) => {
-                const isEditing = editingId === del.id;
+              items={grouped[type].map((del) => ({
+                key: del.id,
+                label: (
+                  <Space>
+                    <StatusBadge status={del.status} />
+                    <Text strong>{del.productName}</Text>
+                  </Space>
+                ),
+                children: (() => {
+                  const entityFields = [
+                    { label: 'Product', value: del.productName },
+                    { label: 'Delegated Entity Type', value: del.delegatedEntityType },
+                    { label: 'Delegated Services', value: del.delegatedServices },
+                    { label: 'Oversight Audit Timeline', value: del.oversightAuditTimeline },
+                    { label: 'Last Audit', value: del.lastAuditCompleted },
+                    {
+                      label: 'Next Audit Due',
+                      value: del.nextAuditDue,
+                      displayOverride: del.nextAuditDue ? (
+                        <span
+                          style={
+                            del.nextAuditDue < new Date().toISOString().split('T')[0]
+                              ? { color: '#DB3321', fontWeight: 500 }
+                              : {}
+                          }
+                        >
+                          {del.nextAuditDue}
+                        </span>
+                      ) : undefined,
+                    },
+                    {
+                      label: 'Corrective Action Plan',
+                      value: del.correctiveActionPlan,
+                      displayOverride: del.correctiveActionPlan ? <Tag color="red">Yes</Tag> : 'No',
+                    },
+                  ];
 
-                return {
-                  key: del.id,
-                  label: (
-                    <Space>
-                      <StatusBadge status={del.status} />
-                      <Text strong>{del.productName}</Text>
-                    </Space>
-                  ),
-                  extra: isEditUser ? (
-                    isEditing ? (
-                      <Space onClick={(e) => e.stopPropagation()}>
-                        <Button size="small" type="primary" icon={<SaveOutlined />} onClick={saveEditing}>
-                          Save
-                        </Button>
-                        <Button size="small" icon={<CloseOutlined />} onClick={cancelEditing}>
-                          Cancel
-                        </Button>
-                      </Space>
-                    ) : (
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditing(del);
-                        }}
-                      />
-                    )
-                  ) : null,
-                  children: (() => {
-                    const entityFields = [
-                      { label: 'Product', value: del.productName, readOnly: true },
-                      { label: 'Delegated Entity Type', value: del.delegatedEntityType, readOnly: true },
-                      { label: 'Delegated Services', field: 'delegatedServices', value: del.delegatedServices },
-                      { label: 'Oversight Audit Timeline', field: 'oversightAuditTimeline', value: del.oversightAuditTimeline },
-                      { label: 'Last Audit', field: 'lastAuditCompleted', value: del.lastAuditCompleted },
-                      {
-                        label: 'Next Audit Due',
-                        field: 'nextAuditDue',
-                        value: del.nextAuditDue,
-                        displayOverride: del.nextAuditDue ? (
-                          <span
-                            style={
-                              del.nextAuditDue < new Date().toISOString().split('T')[0]
-                                ? { color: '#DB3321', fontWeight: 500 }
-                                : {}
-                            }
-                          >
-                            {del.nextAuditDue}
-                          </span>
-                        ) : (
-                          <MissingValue />
-                        ),
-                      },
-                      {
-                        label: 'Corrective Action Plan',
-                        field: 'correctiveActionPlan',
-                        value: del.correctiveActionPlan,
-                        displayOverride: del.correctiveActionPlan ? <Tag color="red">Yes</Tag> : 'No',
-                      },
-                    ];
+                  if (type === 'Clinical-UM') {
+                    entityFields.push({
+                      label: 'Decision Auth Communication',
+                      value: del.decisionAuthCommunication,
+                    });
+                  }
 
-                    if (type === 'Clinical-UM') {
-                      entityFields.push({
-                        label: 'Decision Auth Communication',
-                        field: 'decisionAuthCommunication',
-                        value: del.decisionAuthCommunication,
-                      });
-                    }
-
-                    if (type === 'Claims') {
-                      entityFields.push(
-                        { label: 'Encounter Submission', field: 'encounterSubmission', value: del.encounterSubmission },
-                      );
-                    }
-
-                    return (
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                          gap: '16px 24px',
-                          padding: '4px 0',
-                        }}
-                      >
-                        {entityFields.map(({ label, field, value, displayOverride, readOnly }) => (
-                          <div key={label}>
-                            <div style={{ fontSize: 12, fontWeight: 400, color: '#5E5D5A' }}>
-                              {label}
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 500 }}>
-                              {readOnly ? (
-                                <FieldValue value={value} />
-                              ) : (
-                                <EditOrDisplay
-                                  field={field}
-                                  value={value}
-                                  editing={isEditing}
-                                  editValues={editValues}
-                                  onChange={handleChange}
-                                  displayOverride={displayOverride}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  if (type === 'Claims') {
+                    entityFields.push(
+                      { label: 'Encounter Submission', value: del.encounterSubmission },
                     );
-                  })(),
-                };
-              })}
+                  }
+
+                  return (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                        gap: '16px 24px',
+                        padding: '4px 0',
+                      }}
+                    >
+                      {entityFields.map(({ label, value, displayOverride }) => (
+                        <div key={label}>
+                          <div style={{ fontSize: 12, fontWeight: 400, color: '#5E5D5A' }}>
+                            {label}
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 500 }}>
+                            {displayOverride || <FieldValue value={value} />}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })(),
+              }))}
             />
           </Card>
         ))}
