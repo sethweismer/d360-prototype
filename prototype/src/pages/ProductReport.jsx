@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Typography, Table, Button, Space, Tag } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -8,55 +8,92 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import delegates from '../data/mockData';
 import { exportToCSV, exportToExcel } from '../utils/exportReport';
-import StatusBadge from '../components/StatusBadge';
+import FilterPanel from '../components/FilterPanel';
 
 const { Title, Text } = Typography;
+
+const pillStyle = { fontSize: 12, color: '#1A1A1A', border: 'none' };
+const entityTypePillColors = { Provider: '#D6E4F0', Vendor: '#FDE8D0' };
+const typePillColors = { 'Clinical-UM': '#F0E4FA', 'Clinical-PHM': '#E0ECF7', Claims: '#F5EDE0' };
+const lobPillColors = {
+  Medicare: '#E8D5F5',
+  Medicaid: '#D6E4F0',
+  Commercial: '#FDE8D0',
+  'I-SNP': '#E0D4F0',
+  'D-SNP': '#D0DCE8',
+  'C-SNP': '#E8E0D0',
+};
+
+const emptyFilters = { search: '', entityType: [], lob: [], delegationType: [], openCAP: false };
 
 export default function ProductReport() {
   const navigate = useNavigate();
   const { product } = useParams();
+  const [filters, setFilters] = useState(emptyFilters);
+  const handleFilterChange = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const handleClear = () => setFilters(emptyFilters);
+
+  const productLabel = useMemo(() => {
+    const match = delegates
+      .flatMap((d) => d.products)
+      .find((p) => p.name.toLowerCase().replace(/\s+/g, '-') === product);
+    return match?.name || product;
+  }, [product]);
 
   const reportData = useMemo(() => {
     const rows = [];
     delegates.forEach((d) => {
-      d.products
-        .filter((p) => p.name.toLowerCase().replace(/\s+/g, '-') === product)
-        .forEach((p) => {
-          p.delegations.forEach((del) => {
-            rows.push({
-              id: del.id,
-              delegateId: d.id,
-              contractedEntity: d.contractedEntity,
-              entityType: d.entityType,
-              tin: d.tin,
-              state: d.state,
-              engagementManager: d.engagementManager,
-              networkContractor: d.networkContractor,
-              lob: p.lob,
-              delegationType: del.delegationType,
-              status: del.status,
-              oversightAuditTimeline: del.oversightAuditTimeline,
-              nextAuditDue: del.nextAuditDue,
-              correctiveActionPlan: del.correctiveActionPlan,
-            });
-          });
+      const matchingProducts = d.products.filter(
+        (p) => p.name.toLowerCase().replace(/\s+/g, '-') === product
+      );
+      if (matchingProducts.length === 0) return;
+
+      const lobs = new Set();
+      const delegationTypes = new Set();
+      let hasOpenCAP = false;
+
+      matchingProducts.forEach((p) => {
+        lobs.add(p.lob);
+        p.delegations.forEach((del) => {
+          delegationTypes.add(del.delegationType);
+          if (del.correctiveActionPlan) hasOpenCAP = true;
         });
+      });
+
+      rows.push({
+        id: d.id,
+        delegateId: d.id,
+        contractedEntity: d.contractedEntity,
+        trackingId: d.trackingId,
+        entityType: d.entityType,
+        lobs: [...lobs],
+        delegationTypes: [...delegationTypes],
+        hasOpenCAP,
+      });
     });
     return rows;
   }, [product]);
 
-  const productLabel = useMemo(() => {
-    const match = delegates.flatMap((d) => d.products).find(
-      (p) => p.name.toLowerCase().replace(/\s+/g, '-') === product
-    );
-    return match?.name || product;
-  }, [product]);
+  const filteredData = useMemo(() => {
+    return reportData.filter((row) => {
+      if (filters.search) {
+        const term = filters.search.toLowerCase();
+        if (!row.contractedEntity.toLowerCase().includes(term) &&
+            !(row.trackingId || '').toLowerCase().includes(term)) return false;
+      }
+      if (filters.entityType.length > 0 && !filters.entityType.includes(row.entityType)) return false;
+      if (filters.lob.length > 0 && !filters.lob.every((l) => row.lobs.includes(l))) return false;
+      if (filters.delegationType.length > 0 && !filters.delegationType.every((t) => row.delegationTypes.includes(t))) return false;
+      if (filters.openCAP && !row.hasOpenCAP) return false;
+      return true;
+    });
+  }, [reportData, filters]);
 
   const columns = [
     {
       title: 'Contracted Entity',
       dataIndex: 'contractedEntity',
-      width: 200,
+      width: 220,
       sorter: (a, b) => a.contractedEntity.localeCompare(b.contractedEntity),
       render: (text, record) => (
         <a
@@ -68,63 +105,66 @@ export default function ProductReport() {
       ),
     },
     {
+      title: 'Tracking ID',
+      dataIndex: 'trackingId',
+      width: 120,
+      sorter: (a, b) => (a.trackingId || '').localeCompare(b.trackingId || ''),
+    },
+    {
       title: 'Entity Type',
       dataIndex: 'entityType',
       width: 110,
       sorter: (a, b) => a.entityType.localeCompare(b.entityType),
-      render: (v) => <Tag color={v === 'Provider' ? 'blue' : 'orange'}>{v}</Tag>,
+      render: (v) => (
+        <Tag style={{ ...pillStyle, background: entityTypePillColors[v] || '#EDEDEB' }}>{v}</Tag>
+      ),
     },
     {
       title: 'LOB',
-      dataIndex: 'lob',
-      width: 120,
-      sorter: (a, b) => a.lob.localeCompare(b.lob),
+      dataIndex: 'lobs',
+      width: 160,
+      render: (lobs) => (
+        <Space size={4} wrap>
+          {lobs.map((lob) => (
+            <Tag key={lob} style={{ ...pillStyle, background: lobPillColors[lob] || '#EDEDEB' }}>
+              {lob}
+            </Tag>
+          ))}
+        </Space>
+      ),
     },
     {
-      title: 'Delegation Type',
-      dataIndex: 'delegationType',
-      width: 130,
-      sorter: (a, b) => a.delegationType.localeCompare(b.delegationType),
+      title: 'Delegation Types',
+      dataIndex: 'delegationTypes',
+      width: 200,
+      render: (types) => (
+        <Space size={4} wrap>
+          {types.map((t) => (
+            <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB' }}>
+              {t}
+            </Tag>
+          ))}
+        </Space>
+      ),
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      width: 110,
-      render: (status) => <StatusBadge status={status} />,
-      sorter: (a, b) => a.status.localeCompare(b.status),
-    },
-    {
-      title: 'Oversight Audit',
-      dataIndex: 'oversightAuditTimeline',
-      width: 130,
-      render: (v) => v || <span style={{ color: '#CCC9C6' }}>--</span>,
-    },
-    {
-      title: 'Next Audit Due',
-      dataIndex: 'nextAuditDue',
-      width: 130,
-      render: (date) => {
-        if (!date) return <span style={{ color: '#CCC9C6' }}>--</span>;
-        const isOverdue = date < new Date().toISOString().split('T')[0];
-        return (
-          <span style={isOverdue ? { color: '#DB3321', fontWeight: 500 } : {}}>
-            {date}
-          </span>
-        );
-      },
-      sorter: (a, b) => (a.nextAuditDue || '9999').localeCompare(b.nextAuditDue || '9999'),
-    },
-    {
-      title: 'CAP',
-      dataIndex: 'correctiveActionPlan',
-      width: 70,
+      title: 'Open CAP',
+      dataIndex: 'hasOpenCAP',
+      width: 90,
       align: 'center',
-      render: (cap) =>
-        cap ? <Tag color="red">Yes</Tag> : <span style={{ color: '#CCC9C6' }}>--</span>,
+      sorter: (a, b) => Number(b.hasOpenCAP) - Number(a.hasOpenCAP),
+      render: (v) => v ? <Tag color="red">Yes</Tag> : <span style={{ color: '#CCC9C6' }}>No</span>,
     },
   ];
 
-  const exportColumns = columns.map((c) => ({ title: c.title, dataIndex: c.dataIndex }));
+  const exportColumns = [
+    { title: 'Contracted Entity', dataIndex: 'contractedEntity' },
+    { title: 'Tracking ID', dataIndex: 'trackingId' },
+    { title: 'Entity Type', dataIndex: 'entityType' },
+    { title: 'LOB', dataIndex: 'lobs' },
+    { title: 'Delegation Types', dataIndex: 'delegationTypes' },
+    { title: 'Open CAP', dataIndex: 'hasOpenCAP' },
+  ];
 
   return (
     <div>
@@ -133,6 +173,7 @@ export default function ProductReport() {
           type="text"
           icon={<ArrowLeftOutlined />}
           onClick={() => navigate('/')}
+          style={{ color: '#004D99' }}
         >
           Back to Dashboard
         </Button>
@@ -141,36 +182,43 @@ export default function ProductReport() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <Title level={3} style={{ margin: 0 }}>
-            {productLabel} Delegations
+            {productLabel} — Delegated Entities
           </Title>
           <Text type="secondary">
-            {reportData.length} delegation{reportData.length !== 1 ? 's' : ''}
+            {filteredData.length} delegated entit{filteredData.length !== 1 ? 'ies' : 'y'}
           </Text>
         </div>
         <Space>
           <Button
             icon={<DownloadOutlined />}
-            onClick={() => exportToCSV(reportData, exportColumns, `${product}-delegations.csv`)}
+            onClick={() => exportToCSV(filteredData, exportColumns, `${product}-entities.csv`)}
           >
             Export CSV
           </Button>
           <Button
             icon={<FileExcelOutlined />}
-            onClick={() => exportToExcel(reportData, exportColumns, `${product}-delegations.xlsx`)}
+            onClick={() => exportToExcel(filteredData, exportColumns, `${product}-entities.xlsx`)}
           >
             Export Excel
           </Button>
         </Space>
       </div>
 
+      <FilterPanel
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onClear={handleClear}
+        hiddenFields={['product']}
+      />
+
       <div className="table-bordered">
         <Table
-          dataSource={reportData}
+          dataSource={filteredData}
           columns={columns}
           rowKey="id"
           size="small"
           pagination={{ pageSize: 20, showSizeChanger: true, pageSizeOptions: [10, 20, 50] }}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1000 }}
         />
       </div>
     </div>

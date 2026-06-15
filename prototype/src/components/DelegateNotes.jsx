@@ -113,7 +113,15 @@ export default function DelegateNotes({ initialNotes = [] }) {
       )}
 
       {notes.length === 0 && !adding && (
-        <Empty description="No notes" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <div style={{
+          padding: '16px',
+          background: '#FFFFFF',
+          border: '1px solid #F0EEEC',
+          borderRadius: 6,
+          textAlign: 'center',
+        }}>
+          <Empty description="No notes" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

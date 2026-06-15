@@ -3,13 +3,11 @@ import { SearchOutlined, ClearOutlined, FilterOutlined } from '@ant-design/icons
 
 const { Option } = Select;
 
-const STATES = ['AZ', 'CA', 'CO', 'CT', 'DC', 'FL', 'GA', 'IA', 'IL', 'KY', 'LA', 'MA', 'MD', 'MI', 'MN', 'MO', 'MS', 'NC', 'NE', 'NH', 'NJ', 'NV', 'NY', 'OH', 'OR', 'PA', 'SC', 'TN', 'TX', 'UT', 'VA', 'WA'];
 const DELEGATION_TYPES = ['Clinical-UM', 'Clinical-PHM', 'Claims'];
 const LOB_OPTIONS = ['Medicare', 'Medicaid', 'Commercial', 'I-SNP', 'D-SNP', 'C-SNP'];
-const STATUS_OPTIONS = ['Approved', 'Terminated', 'Under Review', 'Pend Entity', 'Draft'];
 const ENTITY_TYPES = ['Provider', 'Vendor'];
 
-export default function FilterPanel({ filters, onFilterChange, onClear, productOptions = [] }) {
+export default function FilterPanel({ filters, onFilterChange, onClear, productOptions = [], hiddenFields = [] }) {
   const activeFilters = Object.entries(filters).filter(
     ([, value]) => value && (Array.isArray(value) ? value.length > 0 : value !== '')
   );
@@ -22,91 +20,73 @@ export default function FilterPanel({ filters, onFilterChange, onClear, productO
           <Typography.Text strong style={{ color: '#5E5D5A', marginRight: 4 }}>Filters</Typography.Text>
         </Space>
         <Input
-          placeholder="Search entity, TIN, Tracking ID..."
+          placeholder="Search entity name or Tracking ID..."
           prefix={<SearchOutlined />}
           value={filters.search || ''}
           onChange={(e) => onFilterChange('search', e.target.value)}
-          style={{ width: 260 }}
+          style={{ width: 280 }}
           allowClear
         />
-        <Select
-          placeholder="Status"
-          mode="multiple"
-          value={filters.status || []}
-          onChange={(val) => onFilterChange('status', val)}
-          style={{ minWidth: 130 }}
-          allowClear
-          maxTagCount={1}
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <Option key={s} value={s}>{s}</Option>
-          ))}
-        </Select>
-        <Select
-          placeholder="Delegation Type"
-          mode="multiple"
-          value={filters.delegationType || []}
-          onChange={(val) => onFilterChange('delegationType', val)}
-          style={{ minWidth: 170 }}
-          allowClear
-          maxTagCount={1}
-        >
-          {DELEGATION_TYPES.map((t) => (
-            <Option key={t} value={t}>{t}</Option>
-          ))}
-        </Select>
-        <Select
-          placeholder="LOB"
-          mode="multiple"
-          value={filters.lob || []}
-          onChange={(val) => onFilterChange('lob', val)}
-          style={{ minWidth: 130 }}
-          allowClear
-          maxTagCount={1}
-        >
-          {LOB_OPTIONS.map((l) => (
-            <Option key={l} value={l}>{l}</Option>
-          ))}
-        </Select>
-        <Select
-          placeholder="Product"
-          mode="multiple"
-          value={filters.product || []}
-          onChange={(val) => onFilterChange('product', val)}
-          style={{ minWidth: 180 }}
-          allowClear
-          maxTagCount={1}
-        >
-          {productOptions.map((p) => (
-            <Option key={p} value={p}>{p}</Option>
-          ))}
-        </Select>
-        <Select
-          placeholder="State"
-          mode="multiple"
-          value={filters.state || []}
-          onChange={(val) => onFilterChange('state', val)}
-          style={{ minWidth: 120 }}
-          allowClear
-          maxTagCount={1}
-        >
-          {STATES.map((s) => (
-            <Option key={s} value={s}>{s}</Option>
-          ))}
-        </Select>
-        <Select
-          placeholder="Entity Type"
-          mode="multiple"
-          value={filters.entityType || []}
-          onChange={(val) => onFilterChange('entityType', val)}
-          style={{ minWidth: 140 }}
-          allowClear
-          maxTagCount={1}
-        >
-          {ENTITY_TYPES.map((t) => (
-            <Option key={t} value={t}>{t}</Option>
-          ))}
-        </Select>
+        {!hiddenFields.includes('entityType') && (
+          <Select
+            placeholder="Entity Type"
+            mode="multiple"
+            value={filters.entityType || []}
+            onChange={(val) => onFilterChange('entityType', val)}
+            style={{ minWidth: 140 }}
+            allowClear
+            maxTagCount={1}
+          >
+            {ENTITY_TYPES.map((t) => (
+              <Option key={t} value={t}>{t}</Option>
+            ))}
+          </Select>
+        )}
+        {!hiddenFields.includes('lob') && (
+          <Select
+            placeholder="LOB"
+            mode="multiple"
+            value={filters.lob || []}
+            onChange={(val) => onFilterChange('lob', val)}
+            style={{ minWidth: 130 }}
+            allowClear
+            maxTagCount={1}
+          >
+            {LOB_OPTIONS.map((l) => (
+              <Option key={l} value={l}>{l}</Option>
+            ))}
+          </Select>
+        )}
+        {!hiddenFields.includes('product') && (
+          <Select
+            placeholder="Product"
+            mode="multiple"
+            value={filters.product || []}
+            onChange={(val) => onFilterChange('product', val)}
+            style={{ minWidth: 180 }}
+            allowClear
+            maxTagCount={1}
+          >
+            {productOptions.map((p) => (
+              <Option key={p} value={p}>{p}</Option>
+            ))}
+          </Select>
+        )}
+        {!hiddenFields.includes('delegationType') && (
+          <Select
+            placeholder="Delegation Type"
+            mode="multiple"
+            value={filters.delegationType || []}
+            onChange={(val) => onFilterChange('delegationType', val)}
+            style={{ minWidth: 170 }}
+            allowClear
+            maxTagCount={1}
+          >
+            {DELEGATION_TYPES.map((t) => (
+              <Option key={t} value={t}>{t}</Option>
+            ))}
+          </Select>
+        )}
         {activeFilters.length > 0 && (
           <Button
             icon={<ClearOutlined />}

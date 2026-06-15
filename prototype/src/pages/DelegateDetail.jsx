@@ -2,20 +2,18 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card,
-  Col,
   Typography,
   Tag,
-  Row,
   Space,
   Button,
   Table,
   Collapse,
   message,
   Empty,
+  Segmented,
 } from 'antd';
 import {
   ArrowLeftOutlined,
-  ProfileOutlined,
   CopyOutlined,
   ContactsOutlined,
   UserOutlined,
@@ -24,6 +22,8 @@ import {
   ToolOutlined,
   LaptopOutlined,
   AppstoreOutlined,
+  EnvironmentOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import delegates, { getDelegationsForDelegate } from '../data/mockData';
 import { useUser } from '../context/UserContext';
@@ -31,6 +31,17 @@ import StatusBadge from '../components/StatusBadge';
 import DelegateNotes from '../components/DelegateNotes';
 
 const { Title, Text } = Typography;
+
+const pillStyle = { fontSize: 12, color: '#1A1A1A', border: 'none' };
+const typePillColors = {
+  'Clinical-UM': '#F0E4FA',
+  'Clinical-PHM': '#E0ECF7',
+  Claims: '#F5EDE0',
+};
+const entityTypePillColors = {
+  Provider: '#D6E4F0',
+  Vendor: '#FDE8D0',
+};
 
 function MissingValue() {
   return <Text type="secondary" style={{ fontStyle: 'italic', color: '#CCC9C6' }}>--</Text>;
@@ -42,65 +53,7 @@ function FieldValue({ value }) {
 }
 
 
-function SummaryField({ label, children }) {
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 12, fontWeight: 400, color: '#5E5D5A', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 14, fontWeight: 500 }}>{children}</div>
-    </div>
-  );
-}
 
-// Delegate summary header — columns read top-to-bottom, left-to-right
-function DelegateSummary({ delegate }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <span style={{ fontSize: 18, fontWeight: 500, display: 'block', marginBottom: 12 }}>
-        <ProfileOutlined style={{ marginRight: 8 }} />
-        Delegate Details
-      </span>
-    <Card size="small">
-      <Row gutter={24}>
-        {/* Column 1: Contracted Entity & Address */}
-        <Col xs={24} sm={12} lg={6}>
-          <SummaryField label="Contracted Entity">{delegate.contractedEntity}</SummaryField>
-          <SummaryField label="Address"><FieldValue value={delegate.address} /></SummaryField>
-          <SummaryField label="State">{delegate.state}</SummaryField>
-          <SummaryField label="TIN">{delegate.tin}</SummaryField>
-        </Col>
-        {/* Column 2: Audited Entity & MSO */}
-        <Col xs={24} sm={12} lg={6}>
-          <SummaryField label="Audited Entity"><FieldValue value={delegate.auditedEntity} /></SummaryField>
-          <SummaryField label="MSO (Management Services Organization)"><FieldValue value={delegate.mso} /></SummaryField>
-          <SummaryField label="Audited Entity Status"><FieldValue value={delegate.auditedEntityStatus} /></SummaryField>
-          <SummaryField label="Entity Type">
-            <Tag color={delegate.entityType === 'Provider' ? 'blue' : 'orange'}>
-              {delegate.entityType}
-            </Tag>
-          </SummaryField>
-          <SummaryField label="Model Type">
-            <Tag color={delegate.modelType === 'Standard' ? 'green' : 'volcano'}>
-              {delegate.modelType}
-            </Tag>
-          </SummaryField>
-        </Col>
-        {/* Column 3: Contract Dates */}
-        <Col xs={24} sm={12} lg={6}>
-          <SummaryField label="Contract Effective"><FieldValue value={delegate.contractEffectiveDate} /></SummaryField>
-          <SummaryField label="Contract Renewal"><FieldValue value={delegate.contractRenewalDate} /></SummaryField>
-          <SummaryField label="Contract Term"><FieldValue value={delegate.contractTermDate} /></SummaryField>
-        </Col>
-        {/* Column 4: People / IDs */}
-        <Col xs={24} sm={12} lg={6}>
-          <SummaryField label="Tracking ID">{delegate.trackingId}</SummaryField>
-          <SummaryField label="Engagement Manager"><FieldValue value={delegate.engagementManager} /></SummaryField>
-          <SummaryField label="Network Contractor"><FieldValue value={delegate.networkContractor} /></SummaryField>
-        </Col>
-      </Row>
-    </Card>
-    </div>
-  );
-}
 
 // Contacts card
 function ContactsCard({ contacts }) {
@@ -108,13 +61,14 @@ function ContactsCard({ contacts }) {
   const entries = Object.entries(contacts).filter(([, v]) => v);
   if (entries.length === 0) return null;
 
+  const brandPurple = '#7D3F98';
   const contactMeta = {
-    um: { label: 'UM Contact', icon: <MedicineBoxOutlined />, color: '#7D3F98' },
-    cm: { label: 'CM Contact', icon: <UserOutlined />, color: '#004D99' },
-    claims: { label: 'Claims Contact', icon: <FileProtectOutlined />, color: '#002B57' },
-    clinical: { label: 'Clinical Contact', icon: <MedicineBoxOutlined />, color: '#118738' },
-    contracting: { label: 'Contracting Contact', icon: <ToolOutlined />, color: '#B26000' },
-    technical: { label: 'Technical Contact', icon: <LaptopOutlined />, color: '#5E5D5A' },
+    um: { label: 'UM Contact', icon: <MedicineBoxOutlined /> },
+    cm: { label: 'CM Contact', icon: <UserOutlined /> },
+    claims: { label: 'Claims Contact', icon: <FileProtectOutlined /> },
+    clinical: { label: 'Clinical Contact', icon: <MedicineBoxOutlined /> },
+    contracting: { label: 'Contracting Contact', icon: <ToolOutlined /> },
+    technical: { label: 'Technical Contact', icon: <LaptopOutlined /> },
   };
 
   return (
@@ -125,7 +79,7 @@ function ContactsCard({ contacts }) {
       </span>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
         {entries.map(([key, value]) => {
-          const meta = contactMeta[key] || { label: key, icon: <UserOutlined />, color: '#8F8C89' };
+          const meta = contactMeta[key] || { label: key, icon: <UserOutlined /> };
           const emailMatch = value?.match(/^(.+?)\s*\(([^)]+)\)$/);
           const name = emailMatch ? emailMatch[1] : value;
           const email = emailMatch ? emailMatch[2] : null;
@@ -134,48 +88,51 @@ function ContactsCard({ contacts }) {
             <div key={key} style={{ flex: '1 1 0', minWidth: 200 }}>
               <Card
                 size="small"
-                style={{ height: '100%', borderLeft: `3px solid ${meta.color}` }}
+                style={{ height: '100%', borderLeft: `3px solid ${brandPurple}` }}
                 styles={{ body: { padding: '12px 16px' } }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                   <div
                     style={{
-                      width: 32,
-                      height: 32,
+                      width: 36,
+                      height: 36,
                       borderRadius: '50%',
-                      background: `${meta.color}14`,
+                      background: `${brandPurple}14`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: meta.color,
-                      fontSize: 15,
+                      color: brandPurple,
+                      fontSize: 16,
                       flexShrink: 0,
                     }}
                   >
                     {meta.icon}
                   </div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{meta.label}</Text>
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{name}</div>
-                {email && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: '#004D99',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => {
-                      navigator.clipboard.writeText(email);
-                      message.success('Email copied');
-                    }}
-                  >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</span>
-                    <CopyOutlined style={{ fontSize: 11, flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>{meta.label}</Text>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{name}</div>
+                    {email && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: '#004D99',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          cursor: 'pointer',
+                          marginTop: 1,
+                        }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(email);
+                          message.success('Email copied');
+                        }}
+                      >
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</span>
+                        <CopyOutlined style={{ fontSize: 11, flexShrink: 0 }} />
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </Card>
             </div>
           );
@@ -204,110 +161,63 @@ function getProductColor(productName) {
 
 // ---- TABLE-FIRST VIEW (grouped by Product) ----
 function TableFirstView({ delegate }) {
+  const navigate = useNavigate();
   const totalDelegations = delegate.products.reduce((sum, p) => sum + p.delegations.length, 0);
 
   const columns = [
     {
-      title: 'Type',
+      title: 'Tracking ID',
+      dataIndex: 'delegationTrackingId',
+      width: 85,
+      render: (v, record) => v ? (
+        <a
+          onClick={() => navigate(`/delegates/${delegate.id}/delegations/${record.id}`)}
+          style={{ color: '#004D99' }}
+        >
+          {v}
+        </a>
+      ) : <FieldValue value={v} />,
+    },
+    {
+      title: 'Delegation Type',
       dataIndex: 'delegationType',
-      width: 100,
-      render: (t) => {
-        const colors = { 'Clinical-UM': 'purple', 'Clinical-PHM': 'cyan', Claims: 'geekblue' };
-        return <Tag color={colors[t] || 'default'}>{t}</Tag>;
-      },
-    },
-    {
-      title: 'States',
-      dataIndex: 'states',
-      width: 100,
-      render: (states) => states?.join(', ') || <MissingValue />,
-    },
-    {
-      title: 'Service Area',
-      dataIndex: 'serviceArea',
-      width: 160,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
-      title: 'Delegated Entity Type',
-      dataIndex: 'delegatedEntityType',
-      width: 140,
-      render: (v) => <FieldValue value={v} />,
+      width: 105,
+      render: (t) => <Tag style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB' }}>{t}</Tag>,
     },
     {
       title: 'Status',
       dataIndex: 'status',
-      width: 100,
+      width: 80,
       render: (s) => <StatusBadge status={s} />,
     },
     {
-      title: 'Effective Date',
+      title: 'Eff. Date',
       dataIndex: 'effectiveDate',
-      width: 120,
+      width: 80,
       render: (v) => <FieldValue value={v} />,
     },
     {
       title: 'Term Date',
       dataIndex: 'termDate',
-      width: 120,
+      width: 80,
       render: (v) => <FieldValue value={v} />,
     },
     {
-      title: 'Delegated Services',
-      dataIndex: 'delegatedServices',
-      width: 180,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
-      title: 'Oversight Audit Timeline',
-      dataIndex: 'oversightAuditTimeline',
-      width: 160,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
-      title: 'Last Audit',
-      dataIndex: 'lastAuditCompleted',
-      width: 130,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
-      title: 'Next Audit',
-      dataIndex: 'nextAuditDue',
+      title: 'Audited Entity',
+      dataIndex: 'auditedEntity',
       width: 140,
-      render: (v) => {
-        if (!v) return <MissingValue />;
-        const isOverdue = v < new Date().toISOString().split('T')[0];
-        return <span style={isOverdue ? { color: '#DB3321', fontWeight: 500 } : {}}>{v}</span>;
-      },
+      render: (v) => <FieldValue value={v} />,
     },
     {
       title: 'CAP',
       dataIndex: 'correctiveActionPlan',
-      width: 80,
+      width: 50,
       align: 'center',
       render: (v) => v ? (
         <Tag color="red">Yes</Tag>
       ) : (
         <span style={{ color: '#CCC9C6' }}>No</span>
       ),
-    },
-    {
-      title: 'Auth Comm',
-      dataIndex: 'decisionAuthCommunication',
-      width: 120,
-      render: (v, record) => {
-        if (record.delegationType !== 'Clinical-UM') return <span style={{ color: '#CCC9C6' }}>--</span>;
-        return v ? <Tag color="blue">{v}</Tag> : <MissingValue />;
-      },
-    },
-    {
-      title: 'Encounter Submission Method',
-      dataIndex: 'encounterSubmission',
-      width: 120,
-      render: (v, record) => {
-        if (record.delegationType !== 'Claims') return <span style={{ color: '#CCC9C6' }}>--</span>;
-        return <FieldValue value={v} />;
-      },
     },
   ];
 
@@ -323,10 +233,6 @@ function TableFirstView({ delegate }) {
 
   return (
     <div>
-      <span style={{ fontSize: 18, fontWeight: 500, display: 'block', marginBottom: 16 }}>
-        <AppstoreOutlined style={{ marginRight: 8 }} />
-        Products & Delegations ({totalDelegations})
-      </span>
       {lobGroups.map(([lob, products]) => (
         <div key={lob} style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -342,10 +248,7 @@ function TableFirstView({ delegate }) {
                 size="small"
                 style={{ marginBottom: 16, borderLeft: `3px solid ${color}` }}
                 title={
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>{product.name}</span>
-                    <Tag>{product.delegations.length} delegation{product.delegations.length !== 1 ? 's' : ''}</Tag>
-                  </div>
+                  <span style={{ fontSize: 15, fontWeight: 600 }}>{product.name}</span>
                 }
                 extra={null}
                 styles={{ header: { borderBottom: '1px solid #F0F0F0' } }}
@@ -357,7 +260,8 @@ function TableFirstView({ delegate }) {
                     rowKey="id"
                     size="small"
                     pagination={false}
-                    scroll={{ x: 1960 }}
+                    tableLayout="fixed"
+                    scroll={{ x: 1385 }}
                   />
                 </div>
               </Card>
@@ -431,45 +335,15 @@ function EntityDetailView({ delegate }) {
                 ),
                 children: (() => {
                   const entityFields = [
+                    { label: 'Tracking ID', value: del.delegationTrackingId },
                     { label: 'Product', value: del.productName },
-                    { label: 'Delegated Entity Type', value: del.delegatedEntityType },
-                    { label: 'Delegated Services', value: del.delegatedServices },
-                    { label: 'Oversight Audit Timeline', value: del.oversightAuditTimeline },
-                    { label: 'Last Audit', value: del.lastAuditCompleted },
-                    {
-                      label: 'Next Audit Due',
-                      value: del.nextAuditDue,
-                      displayOverride: del.nextAuditDue ? (
-                        <span
-                          style={
-                            del.nextAuditDue < new Date().toISOString().split('T')[0]
-                              ? { color: '#DB3321', fontWeight: 500 }
-                              : {}
-                          }
-                        >
-                          {del.nextAuditDue}
-                        </span>
-                      ) : undefined,
-                    },
+                    { label: 'Audited Entity', value: del.auditedEntity },
                     {
                       label: 'Corrective Action Plan',
                       value: del.correctiveActionPlan,
                       displayOverride: del.correctiveActionPlan ? <Tag color="red">Yes</Tag> : 'No',
                     },
                   ];
-
-                  if (type === 'Clinical-UM') {
-                    entityFields.push({
-                      label: 'Decision Auth Communication',
-                      value: del.decisionAuthCommunication,
-                    });
-                  }
-
-                  if (type === 'Claims') {
-                    entityFields.push(
-                      { label: 'Encounter Submission', value: del.encounterSubmission },
-                    );
-                  }
 
                   return (
                     <div
@@ -501,12 +375,110 @@ function EntityDetailView({ delegate }) {
   );
 }
 
+// ---- FLAT LIST VIEW (single table with LOB & Product columns) ----
+function FlatListView({ delegate }) {
+  const navigate = useNavigate();
+  const totalDelegations = delegate.products.reduce((sum, p) => sum + p.delegations.length, 0);
+
+  const flatData = useMemo(() => {
+    const rows = [];
+    delegate.products.forEach((p) => {
+      p.delegations.forEach((del) => {
+        rows.push({ ...del, lob: p.lob, productName: p.name });
+      });
+    });
+    return rows;
+  }, [delegate.products]);
+
+  const columns = [
+    {
+      title: 'Tracking ID',
+      dataIndex: 'delegationTrackingId',
+      width: 95,
+      render: (v, record) => v ? (
+        <a
+          onClick={() => navigate(`/delegates/${delegate.id}/delegations/${record.id}`)}
+          style={{ color: '#004D99' }}
+        >
+          {v}
+        </a>
+      ) : <FieldValue value={v} />,
+    },
+    {
+      title: 'LOB',
+      dataIndex: 'lob',
+      width: 90,
+    },
+    {
+      title: 'Product',
+      dataIndex: 'productName',
+      width: 130,
+    },
+    {
+      title: 'Delegation Type',
+      dataIndex: 'delegationType',
+      width: 105,
+      render: (t) => <Tag style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB' }}>{t}</Tag>,
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      width: 80,
+      render: (s) => <StatusBadge status={s} />,
+    },
+    {
+      title: 'Eff. Date',
+      dataIndex: 'effectiveDate',
+      width: 80,
+      render: (v) => <FieldValue value={v} />,
+    },
+    {
+      title: 'Term Date',
+      dataIndex: 'termDate',
+      width: 80,
+      render: (v) => <FieldValue value={v} />,
+    },
+    {
+      title: 'Audited Entity',
+      dataIndex: 'auditedEntity',
+      width: 140,
+      render: (v) => <FieldValue value={v} />,
+    },
+    {
+      title: 'CAP',
+      dataIndex: 'correctiveActionPlan',
+      width: 50,
+      align: 'center',
+      render: (v) => v ? (
+        <Tag color="red">Yes</Tag>
+      ) : (
+        <span style={{ color: '#CCC9C6' }}>No</span>
+      ),
+    },
+  ];
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div className="table-bordered">
+        <Table
+          dataSource={flatData}
+          columns={columns}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          scroll={{ x: 'max-content' }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ---- MAIN DELEGATE DETAIL PAGE ----
 export default function DelegateDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [viewMode, setViewMode] = useState('table');
+  const [viewMode, setViewMode] = useState('flat');
 
   const delegate = delegates.find((d) => d.id === id);
 
@@ -525,35 +497,52 @@ export default function DelegateDetail() {
 
   return (
     <div>
-      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }} align="center">
-        <Space>
+      <div style={{ marginBottom: 16 }}>
+        <Space align="center">
           <Button
             icon={<ArrowLeftOutlined />}
             onClick={() => navigate(-1)}
             type="text"
+            style={{ color: '#004D99' }}
           />
           <Title level={2} style={{ margin: 0 }}>
             {delegate.contractedEntity}
           </Title>
         </Space>
-        {/* View toggle hidden — Entity Detail view preserved but not shown for now */}
-        {/* <Segmented
-          value={viewMode}
-          onChange={setViewMode}
-          options={[
-            { label: 'Entity Detail', value: 'entity', icon: <ProfileOutlined /> },
-            { label: 'Table View', value: 'table', icon: <TableOutlined /> },
-          ]}
-        /> */}
-      </Space>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 24px', marginTop: 4, paddingLeft: 40, alignItems: 'center' }}>
+          <Tag style={{ ...pillStyle, margin: 0, background: entityTypePillColors[delegate.entityType] || '#EDEDEB' }}>
+            {delegate.entityType}
+          </Tag>
+          <Text type="secondary" style={{ fontSize: 15 }}>
+            <span style={{ fontWeight: 500 }}>Tracking ID:</span> {delegate.trackingId}
+          </Text>
+          {delegate.address && (
+            <Text type="secondary" style={{ fontSize: 15 }}>
+              <EnvironmentOutlined style={{ marginRight: 5, fontSize: 16, color: '#7D3F98' }} />
+              {delegate.address}
+            </Text>
+          )}
+          {(delegate.contractEffectiveDate || delegate.contractRenewalDate || delegate.contractTermDate) && (
+            <Text type="secondary" style={{ fontSize: 15 }}>
+              <CalendarOutlined style={{ marginRight: 5, fontSize: 16, color: '#7D3F98' }} />
+              {[
+                delegate.contractEffectiveDate && `Effective: ${delegate.contractEffectiveDate}`,
+                delegate.contractRenewalDate && `Renewal: ${delegate.contractRenewalDate}`,
+                delegate.contractTermDate && `Term: ${delegate.contractTermDate}`,
+              ].filter(Boolean).join(' · ')}
+            </Text>
+          )}
+        </div>
+      </div>
 
-      <DelegateSummary delegate={delegate} />
+      <div style={{ marginBottom: 16 }}>
+        <span style={{ fontSize: 18, fontWeight: 500 }}>
+          <AppstoreOutlined style={{ marginRight: 8 }} />
+          Delegations ({totalDelegations})
+        </span>
+      </div>
+      <FlatListView delegate={delegate} />
       <ContactsCard contacts={delegate.contacts} />
-      {viewMode === 'table' ? (
-        <TableFirstView delegate={delegate} />
-      ) : (
-        <EntityDetailView delegate={delegate} />
-      )}
       <DelegateNotes initialNotes={delegate.notes || []} />
     </div>
   );

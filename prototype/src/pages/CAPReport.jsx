@@ -126,6 +126,7 @@ export default function CAPReport() {
           type="text"
           icon={<ArrowLeftOutlined />}
           onClick={() => navigate('/')}
+          style={{ color: '#004D99' }}
         >
           Back to Dashboard
         </Button>

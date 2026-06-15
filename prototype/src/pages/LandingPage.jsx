@@ -11,6 +11,7 @@ import {
   Space,
   Button,
   Pagination,
+  Select,
 } from 'antd';
 import {
   TeamOutlined,
@@ -21,6 +22,9 @@ import {
   DownOutlined,
   UnorderedListOutlined,
   AppstoreOutlined,
+  FilterOutlined,
+  DownloadOutlined,
+  FileExcelOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import delegates, {
@@ -33,38 +37,50 @@ import FilterPanel from '../components/FilterPanel';
 import StatusBadge from '../components/StatusBadge';
 import DelegationChatbot from '../components/DelegationChatbot';
 import { useUser } from '../context/UserContext';
+import { exportToCSV, exportToExcel } from '../utils/exportReport';
 
 const { Title, Text } = Typography;
 
 const emptyFilters = {
   search: '',
-  status: [],
   delegationType: [],
   lob: [],
   product: [],
-  state: [],
   entityType: [],
+  openCAP: false,
 };
 
-const typeColors = {
-  'Clinical-UM': '#7D3F98',
-  'Clinical-PHM': '#004D99',
-  Claims: '#002B57',
-};
-const productColors = {
-  'Medicare': '#118738',
-  'Medicaid': '#B26000',
-  'Commercial': '#004D99',
-  'I-SNP': '#7D3F98',
-  'D-SNP': '#002B57',
-  'C-SNP': '#DB3321',
+// Brand palette pill styles (light bg, black text, no connotative colors)
+const pillStyle = { margin: 0, fontSize: 12, color: '#1A1A1A' };
+
+const lobPillColors = {
+  Medicare: '#E8D5F5',
+  Medicaid: '#D6E4F0',
+  Commercial: '#FDE8D0',
+  'I-SNP': '#E0D4F0',
+  'D-SNP': '#D0DCE8',
+  'C-SNP': '#E8E0D0',
 };
 
-function getProductColor(name) {
-  for (const [key, color] of Object.entries(productColors)) {
-    if (name.startsWith(key)) return color;
-  }
-  return '#8F8C89';
+const typePillColors = {
+  'Clinical-UM': '#F0E4FA',
+  'Clinical-PHM': '#E0ECF7',
+  Claims: '#F5EDE0',
+};
+
+const entityTypePillColors = {
+  Provider: '#D6E4F0',
+  Vendor: '#FDE8D0',
+};
+
+function getProductPillColor(name) {
+  if (name.startsWith('Medicare')) return '#E8D5F5';
+  if (name.startsWith('Medicaid')) return '#D6E4F0';
+  if (name.startsWith('Commercial')) return '#FDE8D0';
+  if (name.startsWith('I-SNP')) return '#E0D4F0';
+  if (name.startsWith('D-SNP')) return '#D0DCE8';
+  if (name.startsWith('C-SNP')) return '#E8E0D0';
+  return '#EDEDEB';
 }
 
 function BarChart({ data, labelKey, countKey, colorMap, colorFn, onClickItem }) {
@@ -104,9 +120,52 @@ function BarChart({ data, labelKey, countKey, colorMap, colorFn, onClickItem }) 
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { showChatbot, showDashboard } = useUser();
+  const { showChatbot, showDashboard, layoutMode } = useUser();
   const stats = useMemo(() => getStats(), []);
   const allDelegations = useMemo(() => getAllDelegations(), []);
+
+  const entitiesWithOpenCAPs = useMemo(() => {
+    const ids = new Set(
+      allDelegations
+        .filter((d) => d.correctiveActionPlan && d.status === 'Approved')
+        .map((d) => d.delegateId)
+    );
+    return ids.size;
+  }, [allDelegations]);
+
+  const entityTypeBreakdown = useMemo(() => {
+    const counts = {};
+    delegates.forEach((d) => {
+      counts[d.entityType] = (counts[d.entityType] || 0) + 1;
+    });
+    return counts;
+  }, []);
+
+  const activeDelegationsByLob = useMemo(() => {
+    const counts = {};
+    allDelegations.filter((d) => d.status === 'Approved').forEach((d) => {
+      counts[d.lob] = (counts[d.lob] || 0) + 1;
+    });
+    return Object.entries(counts).map(([lob, count]) => ({ lob, count }));
+  }, [allDelegations]);
+
+  const activeDelegationsByProduct = useMemo(() => {
+    const counts = {};
+    allDelegations.filter((d) => d.status === 'Approved').forEach((d) => {
+      counts[d.productName] = (counts[d.productName] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([product, count]) => ({ product, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [allDelegations]);
+
+  const activeDelegationsByType = useMemo(() => {
+    const counts = {};
+    allDelegations.filter((d) => d.status === 'Approved').forEach((d) => {
+      counts[d.delegationType] = (counts[d.delegationType] || 0) + 1;
+    });
+    return Object.entries(counts).map(([type, count]) => ({ type, count }));
+  }, [allDelegations]);
 
   // Filters
   const [filters, setFilters] = useState(emptyFilters);
@@ -132,14 +191,11 @@ export default function LandingPage() {
     setCurrentPage(1);
   };
 
-  // View toggle
-  const [viewMode, setViewMode] = useState('ungrouped');
-
   // Pagination (shared)
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
-  // Distribution data
+  // Distribution data (static — used for Quick Reports in standard layout)
   const typeDistribution = useMemo(() => {
     const entitySets = {};
     allDelegations.forEach((d) => {
@@ -173,6 +229,93 @@ export default function LandingPage() {
       .sort((a, b) => b.count - a.count);
   }, []);
 
+  // Filtered distribution counts (reactive — used in Card Filters sidebar)
+  // These reflect the narrowed-down counts based on current filters
+  const filteredDistributions = useMemo(() => {
+    // For each filter option, count = "if I add this value to the current selections,
+    // how many delegates would be in the result?" This uses the same AND logic as the
+    // table: a delegate must have ALL selected values in each category.
+
+    // Helper: given a set of filter values, compute which delegates pass (AND logic).
+    // Each category is checked independently — a delegate needs at least one delegation
+    // per selected value, but they don't have to be the same delegation.
+    const getDelegatesForFilters = (f) => {
+      // Base filter: search + entityType (delegate-level concerns)
+      const baseDelegations = allDelegations.filter((d) => {
+        if (f.search) {
+          const term = f.search.toLowerCase();
+          const delegate = delegates.find((del) => del.id === d.delegateId);
+          const searchable = [d.contractedEntity, delegate?.trackingId || ''].join(' ').toLowerCase();
+          if (!searchable.includes(term)) return false;
+        }
+        if (f.entityType.length > 0) {
+          const delegate = delegates.find((del) => del.id === d.delegateId);
+          if (!delegate || !f.entityType.includes(delegate.entityType)) return false;
+        }
+        return true;
+      });
+
+      // Group delegations by delegate
+      const byDelegate = {};
+      baseDelegations.forEach((d) => {
+        if (!byDelegate[d.delegateId]) byDelegate[d.delegateId] = [];
+        byDelegate[d.delegateId].push(d);
+      });
+
+      // AND check: for each selected value in each category, the delegate must have
+      // at least one delegation with that value (checked independently per category)
+      const passing = new Set();
+      Object.entries(byDelegate).forEach(([id, dels]) => {
+        if (f.lob.length > 0) {
+          const myLobs = new Set(dels.map((d) => d.lob));
+          if (!f.lob.every((v) => myLobs.has(v))) return;
+        }
+        if (f.product.length > 0) {
+          const myProducts = new Set(dels.map((d) => d.productName));
+          if (!f.product.every((v) => myProducts.has(v))) return;
+        }
+        if (f.delegationType.length > 0) {
+          const myTypes = new Set(dels.map((d) => d.delegationType));
+          if (!f.delegationType.every((v) => myTypes.has(v))) return;
+        }
+        if (f.openCAP && !dels.some((d) => d.correctiveActionPlan)) return;
+        passing.add(id);
+      });
+      return passing;
+    };
+
+    // For each option in a category, simulate adding it to current selections and count
+    const countForCategory = (categoryKey, allValues) => {
+      const counts = {};
+      allValues.forEach((val) => {
+        const simulated = { ...filters, [categoryKey]: [...(filters[categoryKey] || []), val] };
+        // Deduplicate in case val is already selected
+        simulated[categoryKey] = [...new Set(simulated[categoryKey])];
+        counts[val] = getDelegatesForFilters(simulated).size;
+      });
+      return counts;
+    };
+
+    const lobValues = lobDistribution.map((item) => item.lob);
+    const productValues = productDistribution.map((item) => item.product);
+    const typeValues = typeDistribution.map((item) => item.type);
+
+    const lobCounts = countForCategory('lob', lobValues);
+    const productCounts = countForCategory('product', productValues);
+    const typeCounts = countForCategory('delegationType', typeValues);
+
+    // openCAP count: simulate toggling openCAP on (from current filters)
+    const capSimulated = { ...filters, openCAP: true };
+    const openCAPCount = getDelegatesForFilters(capSimulated).size;
+
+    return {
+      lob: lobDistribution.map((item) => ({ ...item, count: lobCounts[item.lob] || 0 })),
+      product: productDistribution.map((item) => ({ ...item, count: productCounts[item.product] || 0 })),
+      type: typeDistribution.map((item) => ({ ...item, count: typeCounts[item.type] || 0 })),
+      openCAPs: openCAPCount,
+    };
+  }, [filters, allDelegations, lobDistribution, productDistribution, typeDistribution]);
+
   // Grouped view: filter delegates, then build LOB summaries
   const filteredGrouped = useMemo(() => {
     return delegates
@@ -180,7 +323,7 @@ export default function LandingPage() {
         // Delegate-level filters
         if (filters.search) {
           const term = filters.search.toLowerCase();
-          const searchable = [d.contractedEntity, d.tin, d.trackingId, d.auditedEntity]
+          const searchable = [d.contractedEntity, d.trackingId, d.auditedEntity]
             .join(' ')
             .toLowerCase();
           if (!searchable.includes(term)) return null;
@@ -201,14 +344,8 @@ export default function LandingPage() {
         filteredProducts = filteredProducts
           .map((p) => {
             let dels = p.delegations;
-            if (filters.status.length > 0) {
-              dels = dels.filter((del) => filters.status.includes(del.status));
-            }
             if (filters.delegationType.length > 0) {
               dels = dels.filter((del) => filters.delegationType.includes(del.delegationType));
-            }
-            if (filters.state.length > 0) {
-              dels = dels.filter((del) => del.states?.some((s) => filters.state.includes(s)));
             }
             if (dels.length === 0) return null;
             return { ...p, delegations: dels };
@@ -236,23 +373,16 @@ export default function LandingPage() {
       .filter(Boolean);
   }, [filters]);
 
-  // Ungrouped view: group by Contracted Entity + LOB
-  const filteredUngrouped = useMemo(() => {
-    const filtered = allDelegations.filter((d) => {
+  // Shared helper: base-filter delegations by search + entityType only, group by delegate,
+  // then apply AND logic per category independently.
+  const getPassingDelegateIds = useMemo(() => {
+    // Base filter: search + entityType
+    const baseDelegations = allDelegations.filter((d) => {
       if (filters.search) {
         const term = filters.search.toLowerCase();
-        const searchable = [d.contractedEntity, d.delegationType, d.productName]
-          .join(' ')
-          .toLowerCase();
+        const delegate = delegates.find((del) => del.id === d.delegateId);
+        const searchable = [d.contractedEntity, delegate?.trackingId || ''].join(' ').toLowerCase();
         if (!searchable.includes(term)) return false;
-      }
-      if (filters.status.length > 0 && !filters.status.includes(d.status)) return false;
-      if (filters.delegationType.length > 0 && !filters.delegationType.includes(d.delegationType))
-        return false;
-      if (filters.lob.length > 0 && !filters.lob.includes(d.lob)) return false;
-      if (filters.product.length > 0 && !filters.product.includes(d.productName)) return false;
-      if (filters.state.length > 0) {
-        if (!d.states?.some((s) => filters.state.includes(s))) return false;
       }
       if (filters.entityType.length > 0) {
         const delegate = delegates.find((del) => del.id === d.delegateId);
@@ -261,24 +391,61 @@ export default function LandingPage() {
       return true;
     });
 
-    // Group by delegateId + lob
+    // Group by delegate — check each category independently
+    const byDelegate = {};
+    baseDelegations.forEach((d) => {
+      if (!byDelegate[d.delegateId]) byDelegate[d.delegateId] = [];
+      byDelegate[d.delegateId].push(d);
+    });
+
+    const passing = new Set();
+    Object.entries(byDelegate).forEach(([id, dels]) => {
+      if (filters.lob.length > 0) {
+        const myLobs = new Set(dels.map((d) => d.lob));
+        if (!filters.lob.every((v) => myLobs.has(v))) return;
+      }
+      if (filters.product.length > 0) {
+        const myProducts = new Set(dels.map((d) => d.productName));
+        if (!filters.product.every((v) => myProducts.has(v))) return;
+      }
+      if (filters.delegationType.length > 0) {
+        const myTypes = new Set(dels.map((d) => d.delegationType));
+        if (!filters.delegationType.every((v) => myTypes.has(v))) return;
+      }
+      if (filters.openCAP && !dels.some((d) => d.correctiveActionPlan)) return;
+      passing.add(id);
+    });
+
+    return { passing, baseDelegations };
+  }, [filters, allDelegations]);
+
+  // Ungrouped view: group by Contracted Entity + LOB
+  const filteredUngrouped = useMemo(() => {
+    const { passing, baseDelegations } = getPassingDelegateIds;
+
     const groupMap = {};
-    filtered.forEach((d) => {
+    baseDelegations.forEach((d) => {
+      if (!passing.has(d.delegateId)) return;
       const key = `${d.delegateId}-${d.lob}`;
       if (!groupMap[key]) {
+        const delegate = delegates.find((del) => del.id === d.delegateId);
         groupMap[key] = {
           id: key,
           delegateId: d.delegateId,
           contractedEntity: d.contractedEntity,
+          trackingId: delegate?.trackingId,
+          entityType: delegate?.entityType,
           lob: d.lob,
           products: new Set(),
           delegationTypes: new Set(),
           statuses: new Set(),
+          hasOpenCAP: false,
         };
       }
       groupMap[key].products.add(d.productName);
       groupMap[key].delegationTypes.add(d.delegationType);
       groupMap[key].statuses.add(d.status);
+      if (d.correctiveActionPlan) groupMap[key].hasOpenCAP = true;
     });
 
     return Object.values(groupMap).map((g) => ({
@@ -287,7 +454,43 @@ export default function LandingPage() {
       delegationTypes: [...g.delegationTypes],
       statuses: [...g.statuses],
     }));
-  }, [filters, allDelegations]);
+  }, [getPassingDelegateIds]);
+
+  // By-entity view: one row per delegate with LOBs aggregated as pills
+  const filteredByEntity = useMemo(() => {
+    const { passing, baseDelegations } = getPassingDelegateIds;
+
+    const groupMap = {};
+    baseDelegations.forEach((d) => {
+      if (!passing.has(d.delegateId)) return;
+      const key = d.delegateId;
+      if (!groupMap[key]) {
+        const delegate = delegates.find((del) => del.id === d.delegateId);
+        groupMap[key] = {
+          id: key,
+          delegateId: d.delegateId,
+          contractedEntity: d.contractedEntity,
+          trackingId: delegate?.trackingId,
+          entityType: delegate?.entityType,
+          lobs: new Set(),
+          products: new Set(),
+          delegationTypes: new Set(),
+          hasOpenCAP: false,
+        };
+      }
+      groupMap[key].lobs.add(d.lob);
+      groupMap[key].products.add(d.productName);
+      groupMap[key].delegationTypes.add(d.delegationType);
+      if (d.correctiveActionPlan) groupMap[key].hasOpenCAP = true;
+    });
+
+    return Object.values(groupMap).map((g) => ({
+      ...g,
+      lobs: [...g.lobs],
+      products: [...g.products],
+      delegationTypes: [...g.delegationTypes],
+    }));
+  }, [getPassingDelegateIds]);
 
   // Compute dynamic product options based on LOB filter
   const productOptions = useMemo(() => {
@@ -355,7 +558,7 @@ export default function LandingPage() {
             {products.map((name) => {
               const planType = name.replace(/^(Medicare|Medicaid|Commercial|I-SNP|D-SNP|C-SNP)\s+/, '');
               return (
-                <Tag key={name} style={{ margin: 0, fontSize: 11 }} color={getProductColor(name)}>
+                <Tag key={name} style={{ ...pillStyle, background: getProductPillColor(name), border: 'none' }}>
                   {planType}
                 </Tag>
               );
@@ -373,24 +576,9 @@ export default function LandingPage() {
         return (
           <Space size={4} wrap>
             {types.map((t) => (
-              <Tag key={t} style={{ margin: 0, fontSize: 11 }} color={typeColors[t] || '#8F8C89'}>
+              <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB', border: 'none' }}>
                 {t}
               </Tag>
-            ))}
-          </Space>
-        );
-      },
-    },
-    {
-      title: 'Status',
-      dataIndex: 'statuses',
-      width: 140,
-      render: (statuses) => {
-        if (!statuses) return null;
-        return (
-          <Space size={4} wrap>
-            {statuses.map((s) => (
-              <StatusBadge key={s} status={s} />
             ))}
           </Space>
         );
@@ -408,6 +596,19 @@ export default function LandingPage() {
       render: (text) => <span style={{ fontWeight: 500 }}>{text}</span>,
     },
     {
+      title: 'Tracking ID',
+      dataIndex: 'trackingId',
+      width: 120,
+      sorter: (a, b) => (a.trackingId || '').localeCompare(b.trackingId || ''),
+    },
+    {
+      title: 'Entity Type',
+      dataIndex: 'entityType',
+      width: 110,
+      sorter: (a, b) => (a.entityType || '').localeCompare(b.entityType || ''),
+      render: (v) => <Tag style={{ ...pillStyle, background: entityTypePillColors[v] || '#EDEDEB', border: 'none' }}>{v}</Tag>,
+    },
+    {
       title: 'LOB',
       dataIndex: 'lob',
       width: 140,
@@ -423,7 +624,7 @@ export default function LandingPage() {
           {products.map((name) => {
             const planType = name.replace(/^(Medicare|Medicaid|Commercial|I-SNP|D-SNP|C-SNP)\s+/, '');
             return (
-              <Tag key={name} style={{ margin: 0, fontSize: 11 }} color={getProductColor(name)}>
+              <Tag key={name} style={{ ...pillStyle, background: getProductPillColor(name), border: 'none' }}>
                 {planType}
               </Tag>
             );
@@ -438,7 +639,7 @@ export default function LandingPage() {
       render: (types) => (
         <Space size={4} wrap>
           {types.map((t) => (
-            <Tag key={t} style={{ margin: 0, fontSize: 11 }} color={typeColors[t] || '#8F8C89'}>
+            <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB', border: 'none' }}>
               {t}
             </Tag>
           ))}
@@ -446,16 +647,11 @@ export default function LandingPage() {
       ),
     },
     {
-      title: 'Status',
-      dataIndex: 'statuses',
-      width: 140,
-      render: (statuses) => (
-        <Space size={4} wrap>
-          {statuses.map((s) => (
-            <StatusBadge key={s} status={s} />
-          ))}
-        </Space>
-      ),
+      title: 'Open CAP',
+      dataIndex: 'hasOpenCAP',
+      width: 80,
+      align: 'center',
+      render: (v) => v ? <Tag color="red">Yes</Tag> : <span style={{ color: '#CCC9C6' }}>No</span>,
     },
     {
       title: '',
@@ -478,6 +674,87 @@ export default function LandingPage() {
     },
   ];
 
+  // By-entity view columns
+  const byEntityColumns = [
+    {
+      title: 'Contracted Entity',
+      dataIndex: 'contractedEntity',
+      width: 200,
+      sorter: (a, b) => a.contractedEntity.localeCompare(b.contractedEntity),
+      render: (text, record) => (
+        <a
+          onClick={() => navigate(`/delegates/${record.delegateId}`)}
+          style={{ fontWeight: 500, color: '#004D99' }}
+        >
+          {text}
+        </a>
+      ),
+    },
+    {
+      title: 'Tracking ID',
+      dataIndex: 'trackingId',
+      width: 120,
+      sorter: (a, b) => (a.trackingId || '').localeCompare(b.trackingId || ''),
+    },
+    {
+      title: 'Entity Type',
+      dataIndex: 'entityType',
+      width: 110,
+      sorter: (a, b) => (a.entityType || '').localeCompare(b.entityType || ''),
+      render: (v) => <Tag style={{ ...pillStyle, background: entityTypePillColors[v] || '#EDEDEB', border: 'none' }}>{v}</Tag>,
+    },
+    {
+      title: 'LOB',
+      dataIndex: 'lobs',
+      width: 180,
+      render: (lobs) => (
+        <Space size={4} wrap>
+          {lobs.map((lob) => (
+            <Tag key={lob} style={{ ...pillStyle, background: lobPillColors[lob] || '#EDEDEB', border: 'none' }}>{lob}</Tag>
+          ))}
+        </Space>
+      ),
+    },
+    {
+      title: 'Products',
+      dataIndex: 'products',
+      width: 220,
+      render: (products) => (
+        <Space size={4} wrap>
+          {products.map((name) => {
+            const planType = name.replace(/^(Medicare|Medicaid|Commercial|I-SNP|D-SNP|C-SNP)\s+/, '');
+            return (
+              <Tag key={name} style={{ ...pillStyle, background: getProductPillColor(name), border: 'none' }}>
+                {planType}
+              </Tag>
+            );
+          })}
+        </Space>
+      ),
+    },
+    {
+      title: 'Delegation Types',
+      dataIndex: 'delegationTypes',
+      width: 200,
+      render: (types) => (
+        <Space size={4} wrap>
+          {types.map((t) => (
+            <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB', border: 'none' }}>
+              {t}
+            </Tag>
+          ))}
+        </Space>
+      ),
+    },
+    {
+      title: 'Open CAP',
+      dataIndex: 'hasOpenCAP',
+      width: 80,
+      align: 'center',
+      render: (v) => v ? <Tag color="red">Yes</Tag> : <span style={{ color: '#CCC9C6' }}>No</span>,
+    },
+  ];
+
   const allExpanded = paginatedGrouped.every((d) => expandedKeys.includes(d.id));
   const toggleExpand = (delegateId) => {
     setExpandedKeys((prev) =>
@@ -487,272 +764,192 @@ export default function LandingPage() {
     );
   };
 
-  const totalDelegationCount =
-    viewMode === 'grouped'
-      ? filteredGrouped.reduce((sum, d) => sum + d._delegationCount, 0)
-      : filteredUngrouped.length;
+  const exportCols = [
+    { title: 'Contracted Entity', dataIndex: 'contractedEntity' },
+    { title: 'Tracking ID', dataIndex: 'trackingId' },
+    { title: 'Entity Type', dataIndex: 'entityType' },
+    { title: 'LOBs', dataIndex: 'lobs' },
+    { title: 'Products', dataIndex: 'products' },
+    { title: 'Delegation Types', dataIndex: 'delegationTypes' },
+    { title: 'Open CAP', dataIndex: 'hasOpenCAP' },
+  ];
 
   return (
     <div>
-      <Title level={2} style={{ marginBottom: 16 }}>
-        D360 — Delegation Source of Truth
-      </Title>
     <Row gutter={16}>
       {/* Left column: KPIs, charts, table */}
       <Col xs={24} lg={showChatbot ? 16 : 24} style={showChatbot ? {} : { maxWidth: 1600 }}>
 
       {/* KPI Cards & Distribution Charts — toggled via Dashboard switch */}
       {showDashboard && (<>
-      <Card size="small" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-          <Space size={10}>
-            <TeamOutlined style={{ color: '#004D99', fontSize: 20 }} />
-            <Text strong style={{ color: '#004D99', fontSize: 28 }}>{stats.totalDelegates}</Text>
-            <Text type="secondary" style={{ fontSize: 15 }}>Total Delegated Entities</Text>
-          </Space>
-          <div style={{ width: 1, height: 32, background: '#DBD8D5' }} />
-          <Space size={10}>
-            <CheckCircleOutlined style={{ color: '#118738', fontSize: 20 }} />
-            <Text strong style={{ color: '#118738', fontSize: 28 }}>{stats.activeDelegations}</Text>
-            <Text type="secondary" style={{ fontSize: 15 }}>Active Delegations</Text>
-          </Space>
-        </div>
-      </Card>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+        <Card style={{ flex: 1, borderRadius: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Total Delegated Entities</div>
+          <div style={{ fontSize: 36, fontWeight: 700, color: '#6D2077', lineHeight: 1.1, margin: '8px 0' }}>
+            {stats.totalDelegates}
+          </div>
+        </Card>
+        <Card style={{ flex: 1, borderRadius: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Active Delegations</div>
+          <div style={{ fontSize: 36, fontWeight: 700, color: '#6D2077', lineHeight: 1.1, margin: '8px 0' }}>
+            {stats.activeDelegations}
+          </div>
+        </Card>
+      </div>
 
-      {/* Quick Report Cards */}
+
+      {/* Quick Report Cards — hidden in cardFilters mode since they become inline filters */}
+      {layoutMode !== 'cardFilters' && (<>
       <Title level={3} style={{ marginBottom: 12 }}>Quick Reports</Title>
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} md={6}>
-          <Card title="Delegated Entities with Alerts" size="small">
-            <div
-              onClick={() => navigate('/reports/open-caps')}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', cursor: 'pointer' }}
-            >
-              <Text style={{ color: '#004D99' }}>Open CAPs</Text>
-              <Text strong>{stats.openCAPs}</Text>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} md={6}>
-          <Card title="Delegated Entities by LOB" size="small">
-            {lobDistribution.map((item, i) => (
-              <div
-                key={item.lob}
-                onClick={() => navigate(`/reports/lob/${item.lob.toLowerCase().replace(/\s+/g, '-')}`)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < lobDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
-              >
-                <Text style={{ color: '#004D99' }}>{item.lob}</Text>
-                <Text strong>{item.count}</Text>
-              </div>
-            ))}
-          </Card>
-        </Col>
-        <Col xs={24} md={6}>
-          <Card title="Delegated Entities by Product" size="small">
-            {productDistribution.map((item, i) => (
-              <div
-                key={item.product}
-                onClick={() => navigate(`/reports/product/${encodeURIComponent(item.product.toLowerCase().replace(/\s+/g, '-'))}`)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < productDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
-              >
-                <Text style={{ color: '#004D99' }}>{item.product}</Text>
-                <Text strong>{item.count}</Text>
-              </div>
-            ))}
-          </Card>
-        </Col>
-        <Col xs={24} md={6}>
-          <Card title="Delegated Entities by Delegation Type" size="small">
-            {typeDistribution.map((item, i) => (
-              <div
-                key={item.type}
-                onClick={() => navigate(`/reports/delegation-type/${item.type.toLowerCase().replace(/\s+/g, '-')}`)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < typeDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
-              >
-                <Text style={{ color: '#004D99' }}>{item.type}</Text>
-                <Text strong>{item.count}</Text>
-              </div>
-            ))}
-          </Card>
-        </Col>
-      </Row>
-      </>)}
 
-      <div style={{ marginBottom: 24 }}>
+      <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>Delegate Reports</Text>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        {/* Open CAPs card — hidden, keep for later
+        <Card title="Open CAPs" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+          <div
+            onClick={() => navigate('/reports/open-caps')}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #F0EEEC', cursor: 'pointer' }}
+          >
+            <Text style={{ color: '#004D99', fontSize: 12 }}>Delegated Entities</Text>
+            <Text strong style={{ fontSize: 12 }}>{entitiesWithOpenCAPs}</Text>
+          </div>
+          <div
+            onClick={() => navigate('/reports/open-cap-delegations')}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', cursor: 'pointer' }}
+          >
+            <Text style={{ color: '#004D99', fontSize: 12 }}>Delegations</Text>
+            <Text strong style={{ fontSize: 12 }}>{stats.openCAPs}</Text>
+          </div>
+        </Card>
+        */}
+        <Card title="Entities by LOB" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+          {lobDistribution.map((item, i) => (
             <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 12,
-              }}
+              key={item.lob}
+              onClick={() => navigate(`/reports/lob/${item.lob.toLowerCase().replace(/\s+/g, '-')}`)}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < lobDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
             >
-              <Title level={3} style={{ margin: 0 }}>
-                Delegated Entities & Delegations
-              </Title>
-              <Segmented
-                value={viewMode}
-                onChange={setViewMode}
-                options={[
-                  {
-                    value: 'grouped',
-                    icon: <AppstoreOutlined />,
-                    label: 'Grouped',
-                  },
-                  {
-                    value: 'ungrouped',
-                    icon: <UnorderedListOutlined />,
-                    label: 'Ungrouped',
-                  },
-                ]}
+              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.lob}</Text>
+              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+            </div>
+          ))}
+        </Card>
+        <Card title="Entities by Product" size="small" style={{ flex: 1, minWidth: 140, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+          {productDistribution.map((item, i) => (
+            <div
+              key={item.product}
+              onClick={() => navigate(`/reports/product/${encodeURIComponent(item.product.toLowerCase().replace(/\s+/g, '-'))}`)}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < productDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
+            >
+              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.product}</Text>
+              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+            </div>
+          ))}
+        </Card>
+        <Card title="Entities by Delegation Type" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+          {typeDistribution.map((item, i) => (
+            <div
+              key={item.type}
+              onClick={() => navigate(`/reports/delegation-type/${item.type.toLowerCase().replace(/\s+/g, '-')}`)}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < typeDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
+            >
+              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.type}</Text>
+              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+            </div>
+          ))}
+        </Card>
+      </div>
+
+      <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>Delegation Reports</Text>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        <Card title="Delegations by LOB" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+          {activeDelegationsByLob.map((item, i) => (
+            <div
+              key={item.lob}
+              onClick={() => navigate(`/reports/active-delegations/lob/${item.lob.toLowerCase().replace(/\s+/g, '-')}`)}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < activeDelegationsByLob.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
+            >
+              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.lob}</Text>
+              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+            </div>
+          ))}
+        </Card>
+        <Card title="Delegations by Product" size="small" style={{ flex: 1, minWidth: 140, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+          {activeDelegationsByProduct.map((item, i) => (
+            <div
+              key={item.product}
+              onClick={() => navigate(`/reports/active-delegations/product/${encodeURIComponent(item.product.toLowerCase().replace(/\s+/g, '-'))}`)}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < activeDelegationsByProduct.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
+            >
+              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.product}</Text>
+              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+            </div>
+          ))}
+        </Card>
+        <Card title="Delegations by Type" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+          {activeDelegationsByType.map((item, i) => (
+            <div
+              key={item.type}
+              onClick={() => navigate(`/reports/active-delegations/type/${item.type.toLowerCase().replace(/\s+/g, '-')}`)}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < activeDelegationsByType.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
+            >
+              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.type}</Text>
+              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+            </div>
+          ))}
+        </Card>
+      </div>
+      </>)}
+      </>)}
+      <div style={{ marginBottom: 24 }}>
+            <Title level={3} style={{ margin: '0 0 12px' }}>
+              Delegated Entities
+            </Title>
+
+            {layoutMode === 'standard' ? (
+              <>
+              <FilterPanel
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                onClear={handleClear}
+                productOptions={productOptions}
+              />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '12px 0' }}>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                {filteredByEntity.length} delegated entities
+              </Text>
+              <Space>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={() => exportToCSV(filteredByEntity, exportCols, 'delegated-entities.csv')}
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  icon={<FileExcelOutlined />}
+                  onClick={() => exportToExcel(filteredByEntity, exportCols, 'delegated-entities.xlsx')}
+                >
+                  Export Excel
+                </Button>
+              </Space>
+            </div>
+
+            <div className="table-bordered">
+              <Table
+                dataSource={filteredByEntity.slice(
+                  (currentPage - 1) * pageSize,
+                  currentPage * pageSize
+                )}
+                columns={byEntityColumns}
+                rowKey="id"
+                size="small"
+                pagination={false}
+                scroll={{ x: 1200 }}
               />
             </div>
 
-            <FilterPanel
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onClear={handleClear}
-              productOptions={productOptions}
-            />
-
-            {/* Results count + expand/collapse toggle */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                margin: '12px 0',
-              }}
-            >
-              <Text type="secondary" style={{ fontSize: 13 }}>
-                {viewMode === 'grouped'
-                  ? `${filteredGrouped.length} delegates, ${totalDelegationCount} delegations`
-                  : `${totalDelegationCount} delegations`}
-              </Text>
-              {viewMode === 'grouped' && (
-                <Button
-                  type="link"
-                  size="small"
-                  onClick={() =>
-                    setExpandedKeys(allExpanded ? [] : paginatedGrouped.map((d) => d.id))
-                  }
-                >
-                  {allExpanded ? (
-                    <>
-                      <UpOutlined style={{ fontSize: 10, marginRight: 4 }} />
-                      Collapse All
-                    </>
-                  ) : (
-                    <>
-                      <DownOutlined style={{ fontSize: 10, marginRight: 4 }} />
-                      Expand All
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-
-            {/* Grouped View */}
-            {viewMode === 'grouped' && (
-              <div className="table-bordered">
-                <Table
-                  dataSource={groupedTableData}
-                  columns={groupedColumns}
-                  rowKey="_key"
-                  size="small"
-                  pagination={false}
-                  showHeader={true}
-                  onRow={(record) => {
-                    if (record._type === 'delegate') {
-                      return {
-                        onClick: () => toggleExpand(record._delegate.id),
-                        style: { cursor: 'pointer' },
-                      };
-                    }
-                    return {};
-                  }}
-                  components={{
-                    body: {
-                      row: ({ children, ...props }) => {
-                        // Find the record from the data-row-key
-                        const rowKey = props['data-row-key'];
-                        const record = groupedTableData.find((r) => r._key === rowKey);
-                        if (record?._type === 'delegate') {
-                          const d = record._delegate;
-                          const isExpanded = expandedKeys.includes(d.id);
-                          const delCount = d._delegationCount;
-                          return (
-                            <tr {...props} style={{ background: '#F9F7F5' }}>
-                              <td
-                                colSpan={groupedColumns.length}
-                                style={{
-                                  padding: '10px 16px',
-                                  borderBottom: '1px solid #DBD8D5',
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 10,
-                                    width: '100%',
-                                  }}
-                                >
-                                  {isExpanded ? (
-                                    <UpOutlined style={{ fontSize: 10, color: '#5E5D5A' }} />
-                                  ) : (
-                                    <DownOutlined style={{ fontSize: 10, color: '#5E5D5A' }} />
-                                  )}
-                                  <span style={{ fontWeight: 600, color: '#1A1A19', fontSize: 13 }}>
-                                    {d.contractedEntity}
-                                  </span>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>
-                                    {delCount} delegation
-                                    {delCount !== 1 ? 's' : ''}
-                                  </Text>
-                                  <Button
-                                    type="primary"
-                                    size="small"
-                                    style={{ marginLeft: 'auto', fontSize: 12 }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate(`/delegates/${d.id}`);
-                                    }}
-                                  >
-                                    View Contract Details
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        }
-                        return <tr {...props}>{children}</tr>;
-                      },
-                    },
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Ungrouped View */}
-            {viewMode === 'ungrouped' && (
-              <div className="table-bordered">
-                <Table
-                  dataSource={filteredUngrouped.slice(
-                    (currentPage - 1) * pageSize,
-                    currentPage * pageSize
-                  )}
-                  columns={ungroupedColumns}
-                  rowKey="id"
-                  size="small"
-                  pagination={false}
-                  scroll={{ x: 1200 }}
-                  onRow={() => ({})}
-                />
-              </div>
-            )}
-
-            {/* Shared pagination */}
+            {/* Pagination */}
             <div
               style={{
                 display: 'flex',
@@ -763,7 +960,7 @@ export default function LandingPage() {
               <Pagination
                 current={currentPage}
                 pageSize={pageSize}
-                total={viewMode === 'grouped' ? filteredGrouped.length : filteredUngrouped.length}
+                total={filteredByEntity.length}
                 showSizeChanger
                 size="small"
                 pageSizeOptions={[10, 20, 50]}
@@ -773,6 +970,207 @@ export default function LandingPage() {
                 }}
               />
             </div>
+              </>
+            ) : (
+              /* ---- Card Filters layout: sidebar + table ---- */
+              <div style={{ display: 'flex', gap: 24 }}>
+                {/* Left filter sidebar */}
+                <div style={{ width: 220, flexShrink: 0, background: '#fff', borderRadius: 8, border: '1px solid #EDEDEB', padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+                    <FilterOutlined style={{ color: '#5E5D5A' }} />
+                    <Text strong style={{ color: '#5E5D5A' }}>Filters</Text>
+                    {(filters.search || filters.entityType.length > 0 || filters.openCAP || filters.lob.length > 0 || filters.product.length > 0 || filters.delegationType.length > 0) && (
+                      <Button type="link" size="small" onClick={handleClear} style={{ marginLeft: 'auto', padding: 0, fontSize: 11 }}>Clear All</Button>
+                    )}
+                  </div>
+
+                  <input
+                    placeholder="Search entity name or Tracking ID..."
+                    value={filters.search || ''}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                    style={{ width: '100%', padding: '5px 10px', border: '1px solid #d9d9d9', borderRadius: 6, fontSize: 13, marginBottom: 16 }}
+                  />
+
+                  <div style={{ marginBottom: 16 }}>
+                    <Text strong style={{ fontSize: 12, color: '#5E5D5A', display: 'block', marginBottom: 4 }}>Entity Type</Text>
+                    <Select
+                      placeholder="All"
+                      mode="multiple"
+                      value={filters.entityType || []}
+                      onChange={(val) => handleFilterChange('entityType', val)}
+                      style={{ width: '100%' }}
+                      allowClear
+                      maxTagCount={1}
+                      size="small"
+                      options={[
+                        { label: 'Provider', value: 'Provider' },
+                        { label: 'Vendor', value: 'Vendor' },
+                      ]}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <Text strong style={{ fontSize: 12, color: '#5E5D5A', display: 'block', marginBottom: 4 }}>Open CAPs</Text>
+                    {(() => {
+                      const capDisabled = !filters.openCAP && filteredDistributions.openCAPs === 0;
+                      return (
+                        <div
+                          onClick={capDisabled ? undefined : () => handleFilterChange('openCAP', !filters.openCAP)}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '4px 8px', borderRadius: 4,
+                            cursor: capDisabled ? 'default' : 'pointer',
+                            opacity: capDisabled ? 0.4 : 1,
+                            background: filters.openCAP ? '#F0E4FA' : 'transparent',
+                            fontWeight: filters.openCAP ? 600 : 400,
+                            fontSize: 13,
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: filters.openCAP ? '#7D3F98' : '#1A1A1A' }}>Has Open CAP</Text>
+                          <Text strong style={{ fontSize: 13 }}>{filteredDistributions.openCAPs}</Text>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <Text strong style={{ fontSize: 12, color: '#5E5D5A', display: 'block', marginBottom: 4 }}>LOB</Text>
+                    {filteredDistributions.lob.map((item) => {
+                      const isActive = filters.lob.includes(item.lob);
+                      const isDisabled = !isActive && item.count === 0;
+                      return (
+                        <div
+                          key={item.lob}
+                          onClick={isDisabled ? undefined : () => {
+                            const newVal = isActive ? filters.lob.filter((l) => l !== item.lob) : [...filters.lob, item.lob];
+                            handleFilterChange('lob', newVal);
+                          }}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '4px 8px', borderRadius: 4, fontSize: 13,
+                            cursor: isDisabled ? 'default' : 'pointer',
+                            opacity: isDisabled ? 0.4 : 1,
+                            background: isActive ? '#F0E4FA' : 'transparent',
+                            fontWeight: isActive ? 600 : 400,
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: isActive ? '#7D3F98' : '#1A1A1A' }}>{item.lob}</Text>
+                          <Text strong style={{ fontSize: 13 }}>{item.count}</Text>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <Text strong style={{ fontSize: 12, color: '#5E5D5A', display: 'block', marginBottom: 4 }}>Product</Text>
+                    {filteredDistributions.product.map((item) => {
+                      const isActive = filters.product.includes(item.product);
+                      const isDisabled = !isActive && item.count === 0;
+                      return (
+                        <div
+                          key={item.product}
+                          onClick={isDisabled ? undefined : () => {
+                            const newVal = isActive ? filters.product.filter((p) => p !== item.product) : [...filters.product, item.product];
+                            handleFilterChange('product', newVal);
+                          }}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '4px 8px', borderRadius: 4, fontSize: 13,
+                            cursor: isDisabled ? 'default' : 'pointer',
+                            opacity: isDisabled ? 0.4 : 1,
+                            background: isActive ? '#F0E4FA' : 'transparent',
+                            fontWeight: isActive ? 600 : 400,
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: isActive ? '#7D3F98' : '#1A1A1A' }}>{item.product}</Text>
+                          <Text strong style={{ fontSize: 13 }}>{item.count}</Text>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <Text strong style={{ fontSize: 12, color: '#5E5D5A', display: 'block', marginBottom: 4 }}>Delegation Type</Text>
+                    {filteredDistributions.type.map((item) => {
+                      const isActive = filters.delegationType.includes(item.type);
+                      const isDisabled = !isActive && item.count === 0;
+                      return (
+                        <div
+                          key={item.type}
+                          onClick={isDisabled ? undefined : () => {
+                            const newVal = isActive ? filters.delegationType.filter((t) => t !== item.type) : [...filters.delegationType, item.type];
+                            handleFilterChange('delegationType', newVal);
+                          }}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '4px 8px', borderRadius: 4, fontSize: 13,
+                            cursor: isDisabled ? 'default' : 'pointer',
+                            opacity: isDisabled ? 0.4 : 1,
+                            background: isActive ? '#F0E4FA' : 'transparent',
+                            fontWeight: isActive ? 600 : 400,
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: isActive ? '#7D3F98' : '#1A1A1A' }}>{item.type}</Text>
+                          <Text strong style={{ fontSize: 13 }}>{item.count}</Text>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right: table content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      {filteredByEntity.length} delegated entities
+                    </Text>
+                    <Space>
+                      <Button
+                        icon={<DownloadOutlined />}
+                        onClick={() => exportToCSV(filteredByEntity, exportCols, 'delegated-entities.csv')}
+                      >
+                        Export CSV
+                      </Button>
+                      <Button
+                        icon={<FileExcelOutlined />}
+                        onClick={() => exportToExcel(filteredByEntity, exportCols, 'delegated-entities.xlsx')}
+                      >
+                        Export Excel
+                      </Button>
+                    </Space>
+                  </div>
+
+                  <div className="table-bordered">
+                    <Table
+                      dataSource={filteredByEntity.slice(
+                        (currentPage - 1) * pageSize,
+                        currentPage * pageSize
+                      )}
+                      columns={byEntityColumns}
+                      rowKey="id"
+                      size="small"
+                      pagination={false}
+                      scroll={{ x: 1200 }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                    <Pagination
+                      current={currentPage}
+                      pageSize={pageSize}
+                      total={filteredByEntity.length}
+                      showSizeChanger
+                      size="small"
+                      pageSizeOptions={[10, 20, 50]}
+                      onChange={(page, size) => {
+                        setCurrentPage(page);
+                        setPageSize(size);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
       </div>
       </Col>
 
