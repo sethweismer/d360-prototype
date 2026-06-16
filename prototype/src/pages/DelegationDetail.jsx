@@ -130,7 +130,7 @@ export default function DelegationDetail() {
             </Button>
           </Space>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginTop: 6, alignItems: 'center' }}>
+        {false && <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginTop: 6, alignItems: 'center' }}>
           <Tag style={{ ...pillStyle, background: typeColor, padding: '2px 8px', margin: 0 }}>
             {del.delegationType}
           </Tag>
@@ -149,7 +149,7 @@ export default function DelegationDetail() {
               ].filter(Boolean).join(' · ')}
             </Text>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Delegation details — transposed table experiment */}
