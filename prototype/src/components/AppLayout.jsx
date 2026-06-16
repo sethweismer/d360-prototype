@@ -12,6 +12,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import delegates, { getAllDelegations } from '../data/mockData';
 import aetnaLogo from '../assets/aetna-logo.png';
+import appianLogo from '../assets/anatomy_icons/appian_logo.jpeg';
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -156,6 +157,17 @@ export default function AppLayout() {
           >
             Delegation Source-of-Truth
           </span>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: '50%',
+            border: '1px solid #C8C5C2', background: '#F2EFEB',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13, fontWeight: 600, color: '#5E5D5A', letterSpacing: '0.02em',
+          }}>
+            DU
+          </div>
+          <img src={appianLogo} alt="Appian" style={{ height: 26, display: 'block' }} />
         </div>
       </div>
       {/* Global search bar */}
