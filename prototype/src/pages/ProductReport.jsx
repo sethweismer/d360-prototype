@@ -9,6 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import delegates from '../data/mockData';
 import { exportToCSV, exportToExcel } from '../utils/exportReport';
 import FilterPanel from '../components/FilterPanel';
+import ReportResultsSummary from '../components/ReportResultsSummary';
 
 const { Title, Text } = Typography;
 
@@ -116,7 +117,7 @@ export default function ProductReport() {
       width: 110,
       sorter: (a, b) => a.entityType.localeCompare(b.entityType),
       render: (v) => (
-        <Tag style={{ ...pillStyle, background: entityTypePillColors[v] || '#EDEDEB' }}>{v}</Tag>
+        <Tag style={{ ...pillStyle, background: '#EDEDEB' }}>{v}</Tag>
       ),
     },
     {
@@ -126,7 +127,7 @@ export default function ProductReport() {
       render: (lobs) => (
         <Space size={4} wrap>
           {lobs.map((lob) => (
-            <Tag key={lob} style={{ ...pillStyle, background: lobPillColors[lob] || '#EDEDEB' }}>
+            <Tag key={lob} style={{ ...pillStyle, background: '#EDEDEB' }}>
               {lob}
             </Tag>
           ))}
@@ -140,7 +141,7 @@ export default function ProductReport() {
       render: (types) => (
         <Space size={4} wrap>
           {types.map((t) => (
-            <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB' }}>
+            <Tag key={t} style={{ ...pillStyle, background: '#EDEDEB' }}>
               {t}
             </Tag>
           ))}
@@ -179,36 +180,28 @@ export default function ProductReport() {
         </Button>
       </Space>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>
-            {productLabel} — Delegated Entities
-          </Title>
-          <Text type="secondary">
-            {filteredData.length} delegated entit{filteredData.length !== 1 ? 'ies' : 'y'}
-          </Text>
-        </div>
-        <Space>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={() => exportToCSV(filteredData, exportColumns, `${product}-entities.csv`)}
-          >
-            Export CSV
-          </Button>
-          <Button
-            icon={<FileExcelOutlined />}
-            onClick={() => exportToExcel(filteredData, exportColumns, `${product}-entities.xlsx`)}
-          >
-            Export Excel
-          </Button>
-        </Space>
-      </div>
+      <Title level={3} style={{ margin: '0 0 16px' }}>
+        Delegated Entities Report — {productLabel}
+      </Title>
 
       <FilterPanel
         filters={filters}
         onFilterChange={handleFilterChange}
         onClear={handleClear}
         hiddenFields={['product']}
+      />
+      <ReportResultsSummary
+        count={filteredData.length}
+        noun="delegated entity"
+        pluralNoun="delegated entities"
+        filters={filters}
+        pageContext={[{ label: 'Product', value: productLabel }]}
+        actions={
+          <Space>
+            <Button type="primary" icon={<DownloadOutlined />} onClick={() => exportToCSV(filteredData, exportColumns, `${product}-entities.csv`)}>Export CSV</Button>
+            <Button type="primary" icon={<FileExcelOutlined />} onClick={() => exportToExcel(filteredData, exportColumns, `${product}-entities.xlsx`)}>Export Excel</Button>
+          </Space>
+        }
       />
 
       <div className="table-bordered">

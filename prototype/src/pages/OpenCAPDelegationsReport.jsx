@@ -83,7 +83,7 @@ export default function OpenCAPDelegationsReport() {
       width: 110,
       sorter: (a, b) => (a.entityType || '').localeCompare(b.entityType || ''),
       render: (v) => v ? (
-        <Tag style={{ ...pillStyle, background: entityTypePillColors[v] || '#EDEDEB' }}>{v}</Tag>
+        <Tag style={{ ...pillStyle, background: '#EDEDEB' }}>{v}</Tag>
       ) : null,
     },
     {

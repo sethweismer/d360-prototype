@@ -68,7 +68,7 @@ export default function DelegationDetail() {
 
   const { delegation: del, product, delegate } = result;
 
-  const typeColor = typePillColors[del.delegationType] || '#EDEDEB';
+  const typeColor = '#EDEDEB';
 
   // Navigation context — report-provided list takes priority over delegate's full list
   const reportContext = location.state?.delegationList ? location.state : null;
@@ -134,10 +134,10 @@ export default function DelegationDetail() {
           <Tag style={{ ...pillStyle, background: typeColor, padding: '2px 8px', margin: 0 }}>
             {del.delegationType}
           </Tag>
-          <Tag style={{ ...pillStyle, background: lobPillColors[product.lob] || '#EDEDEB', padding: '2px 8px', margin: 0 }}>
+          <Tag style={{ ...pillStyle, background: '#EDEDEB', padding: '2px 8px', margin: 0 }}>
             {product.lob}
           </Tag>
-          <Tag style={{ ...pillStyle, background: getProductPillColor(product.name), padding: '2px 8px', margin: 0 }}>
+          <Tag style={{ ...pillStyle, background: '#EDEDEB', padding: '2px 8px', margin: 0 }}>
             {product.name}
           </Tag>
           {(del.effectiveDate || del.termDate) && (
@@ -214,7 +214,7 @@ export default function DelegationDetail() {
           >
             {delegate.contractedEntity}
           </a>
-          <Tag style={{ ...pillStyle, background: entityTypePillColors[delegate.entityType] || '#EDEDEB' }}>
+          <Tag style={{ ...pillStyle, background: '#EDEDEB' }}>
             {delegate.entityType}
           </Tag>
           <Text type="secondary">

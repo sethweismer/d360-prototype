@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Typography, Table, Button, Space, Tag } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -9,6 +9,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getAllDelegations } from '../data/mockData';
 import { exportToCSV, exportToExcel } from '../utils/exportReport';
 import StatusBadge from '../components/StatusBadge';
+import FilterPanel from '../components/FilterPanel';
+import ReportResultsSummary from '../components/ReportResultsSummary';
 
 const { Title, Text } = Typography;
 
@@ -23,11 +25,16 @@ function FieldValue({ value }) {
   return value;
 }
 
+const emptyFilters = { search: '', lob: [], product: [], delegationType: [] };
+
 // category: 'lob' | 'product' | 'type'
 export default function ActiveDelegationsReport() {
   const navigate = useNavigate();
   const location = useLocation();
   const { category, value } = useParams();
+  const [filters, setFilters] = useState(emptyFilters);
+  const handleFilterChange = (key, val) => setFilters((prev) => ({ ...prev, [key]: val }));
+  const handleClear = () => setFilters(emptyFilters);
 
   const allDelegations = useMemo(() => getAllDelegations(), []);
 
@@ -57,6 +64,27 @@ export default function ActiveDelegationsReport() {
     return { reportData: filtered, pageTitle: label, fileSlug: slug };
   }, [allDelegations, category, value]);
 
+  const productOptions = useMemo(() => {
+    const products = new Set(reportData.map((d) => d.productName));
+    return [...products].sort();
+  }, [reportData]);
+
+  const filteredData = useMemo(() => {
+    return reportData.filter((d) => {
+      if (filters.search) {
+        const term = filters.search.toLowerCase();
+        if (!d.contractedEntity.toLowerCase().includes(term) &&
+            !(d.delegationTrackingId || '').toLowerCase().includes(term)) return false;
+      }
+      if (filters.lob.length > 0 && !filters.lob.includes(d.lob)) return false;
+      if (filters.product.length > 0 && !filters.product.includes(d.productName)) return false;
+      if (filters.delegationType.length > 0 && !filters.delegationType.includes(d.delegationType)) return false;
+      return true;
+    });
+  }, [reportData, filters]);
+
+  const hiddenFields = category === 'lob' ? ['lob', 'entityType'] : category === 'product' ? ['product', 'entityType'] : ['delegationType', 'entityType'];
+
   const categoryLabel =
     category === 'lob' ? 'LOB' : category === 'product' ? 'Product' : 'Delegation Type';
 
@@ -70,7 +98,7 @@ export default function ActiveDelegationsReport() {
           onClick={() => navigate(
             `/delegates/${record.delegateId}/delegations/${record.id}`,
             { state: {
-              delegationList: reportData.map((d) => ({ id: d.id, delegateId: d.delegateId })),
+              delegationList: filteredData.map((d) => ({ id: d.id, delegateId: d.delegateId })),
               returnPath: location.pathname,
               returnLabel: `${categoryLabel}: ${pageTitle}`,
             }}
@@ -112,7 +140,7 @@ export default function ActiveDelegationsReport() {
       dataIndex: 'delegationType',
       width: 90,
       sorter: (a, b) => a.delegationType.localeCompare(b.delegationType),
-      render: (t) => <Tag style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB' }}>{t}</Tag>,
+      render: (t) => <Tag style={{ ...pillStyle, background: '#EDEDEB' }}>{t}</Tag>,
     }] : []),
     {
       title: 'Status',
@@ -139,36 +167,6 @@ export default function ActiveDelegationsReport() {
       render: (v) => <FieldValue value={v} />,
     },
     {
-      title: 'MSO',
-      dataIndex: 'mso',
-      width: 140,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
-      title: 'Audited Entity Status',
-      dataIndex: 'auditedEntityStatus',
-      width: 80,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
-      title: 'Service Area',
-      dataIndex: 'serviceArea',
-      width: 160,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
-      title: 'Delegated Services',
-      dataIndex: 'delegatedServices',
-      width: 160,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
-      title: 'Engagement Manager',
-      dataIndex: 'engagementManager',
-      width: 140,
-      render: (v) => <FieldValue value={v} />,
-    },
-    {
       title: 'CAP',
       dataIndex: 'correctiveActionPlan',
       width: 50,
@@ -187,34 +185,33 @@ export default function ActiveDelegationsReport() {
         </Button>
       </Space>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>
-            Active Delegations — {categoryLabel}: {pageTitle}
-          </Title>
-          <Text type="secondary">
-            {reportData.length} active delegation{reportData.length !== 1 ? 's' : ''}
-          </Text>
-        </div>
-        <Space>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={() => exportToCSV(reportData, exportColumns, `${fileSlug}.csv`)}
-          >
-            Export CSV
-          </Button>
-          <Button
-            icon={<FileExcelOutlined />}
-            onClick={() => exportToExcel(reportData, exportColumns, `${fileSlug}.xlsx`)}
-          >
-            Export Excel
-          </Button>
-        </Space>
-      </div>
+      <Title level={3} style={{ margin: '0 0 16px' }}>
+        Active Delegations Report — {pageTitle}
+      </Title>
+
+      <FilterPanel
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onClear={handleClear}
+        productOptions={productOptions}
+        hiddenFields={hiddenFields}
+      />
+      <ReportResultsSummary
+        count={filteredData.length}
+        noun="delegation"
+        filters={filters}
+        pageContext={[{ label: categoryLabel, value: pageTitle }]}
+        actions={
+          <Space>
+            <Button type="primary" icon={<DownloadOutlined />} onClick={() => exportToCSV(filteredData, exportColumns, `${fileSlug}.csv`)}>Export CSV</Button>
+            <Button type="primary" icon={<FileExcelOutlined />} onClick={() => exportToExcel(filteredData, exportColumns, `${fileSlug}.xlsx`)}>Export Excel</Button>
+          </Space>
+        }
+      />
 
       <div className="table-bordered">
         <Table
-          dataSource={reportData}
+          dataSource={filteredData}
           columns={columns}
           rowKey="id"
           size="small"

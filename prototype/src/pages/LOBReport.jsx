@@ -9,6 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import delegates from '../data/mockData';
 import { exportToCSV, exportToExcel } from '../utils/exportReport';
 import FilterPanel from '../components/FilterPanel';
+import ReportResultsSummary from '../components/ReportResultsSummary';
 
 const { Title, Text } = Typography;
 
@@ -124,7 +125,7 @@ export default function LOBReport() {
       width: 110,
       sorter: (a, b) => a.entityType.localeCompare(b.entityType),
       render: (v) => (
-        <Tag style={{ ...pillStyle, background: entityTypePillColors[v] || '#EDEDEB' }}>{v}</Tag>
+        <Tag style={{ ...pillStyle, background: '#EDEDEB' }}>{v}</Tag>
       ),
     },
     {
@@ -136,7 +137,7 @@ export default function LOBReport() {
           {products.map((name) => {
             const planType = name.replace(/^(Medicare|Medicaid|Commercial|I-SNP|D-SNP|C-SNP)\s+/, '');
             return (
-              <Tag key={name} style={{ ...pillStyle, background: getProductPillColor(name) }}>
+              <Tag key={name} style={{ ...pillStyle, background: '#EDEDEB' }}>
                 {planType}
               </Tag>
             );
@@ -151,7 +152,7 @@ export default function LOBReport() {
       render: (types) => (
         <Space size={4} wrap>
           {types.map((t) => (
-            <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB' }}>
+            <Tag key={t} style={{ ...pillStyle, background: '#EDEDEB' }}>
               {t}
             </Tag>
           ))}
@@ -190,30 +191,9 @@ export default function LOBReport() {
         </Button>
       </Space>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>
-            {lobLabel} — Delegated Entities
-          </Title>
-          <Text type="secondary">
-            {filteredData.length} delegated entit{filteredData.length !== 1 ? 'ies' : 'y'}
-          </Text>
-        </div>
-        <Space>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={() => exportToCSV(filteredData, exportColumns, `${lob}-entities.csv`)}
-          >
-            Export CSV
-          </Button>
-          <Button
-            icon={<FileExcelOutlined />}
-            onClick={() => exportToExcel(filteredData, exportColumns, `${lob}-entities.xlsx`)}
-          >
-            Export Excel
-          </Button>
-        </Space>
-      </div>
+      <Title level={3} style={{ margin: '0 0 16px' }}>
+        Delegated Entities Report — {lobLabel}
+      </Title>
 
       <FilterPanel
         filters={filters}
@@ -221,6 +201,19 @@ export default function LOBReport() {
         onClear={handleClear}
         productOptions={productOptions}
         hiddenFields={['lob']}
+      />
+      <ReportResultsSummary
+        count={filteredData.length}
+        noun="delegated entity"
+        pluralNoun="delegated entities"
+        filters={filters}
+        pageContext={[{ label: 'LOB', value: lobLabel }]}
+        actions={
+          <Space>
+            <Button type="primary" icon={<DownloadOutlined />} onClick={() => exportToCSV(filteredData, exportColumns, `${lob}-entities.csv`)}>Export CSV</Button>
+            <Button type="primary" icon={<FileExcelOutlined />} onClick={() => exportToExcel(filteredData, exportColumns, `${lob}-entities.xlsx`)}>Export Excel</Button>
+          </Space>
+        }
       />
 
       <div className="table-bordered">

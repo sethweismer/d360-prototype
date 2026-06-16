@@ -558,7 +558,7 @@ export default function LandingPage() {
             {products.map((name) => {
               const planType = name.replace(/^(Medicare|Medicaid|Commercial|I-SNP|D-SNP|C-SNP)\s+/, '');
               return (
-                <Tag key={name} style={{ ...pillStyle, background: getProductPillColor(name), border: 'none' }}>
+                <Tag key={name} style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>
                   {planType}
                 </Tag>
               );
@@ -576,7 +576,7 @@ export default function LandingPage() {
         return (
           <Space size={4} wrap>
             {types.map((t) => (
-              <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB', border: 'none' }}>
+              <Tag key={t} style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>
                 {t}
               </Tag>
             ))}
@@ -606,7 +606,7 @@ export default function LandingPage() {
       dataIndex: 'entityType',
       width: 110,
       sorter: (a, b) => (a.entityType || '').localeCompare(b.entityType || ''),
-      render: (v) => <Tag style={{ ...pillStyle, background: entityTypePillColors[v] || '#EDEDEB', border: 'none' }}>{v}</Tag>,
+      render: (v) => <Tag style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>{v}</Tag>,
     },
     {
       title: 'LOB',
@@ -624,7 +624,7 @@ export default function LandingPage() {
           {products.map((name) => {
             const planType = name.replace(/^(Medicare|Medicaid|Commercial|I-SNP|D-SNP|C-SNP)\s+/, '');
             return (
-              <Tag key={name} style={{ ...pillStyle, background: getProductPillColor(name), border: 'none' }}>
+              <Tag key={name} style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>
                 {planType}
               </Tag>
             );
@@ -639,7 +639,7 @@ export default function LandingPage() {
       render: (types) => (
         <Space size={4} wrap>
           {types.map((t) => (
-            <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB', border: 'none' }}>
+            <Tag key={t} style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>
               {t}
             </Tag>
           ))}
@@ -701,7 +701,7 @@ export default function LandingPage() {
       dataIndex: 'entityType',
       width: 110,
       sorter: (a, b) => (a.entityType || '').localeCompare(b.entityType || ''),
-      render: (v) => <Tag style={{ ...pillStyle, background: entityTypePillColors[v] || '#EDEDEB', border: 'none' }}>{v}</Tag>,
+      render: (v) => <Tag style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>{v}</Tag>,
     },
     {
       title: 'LOB',
@@ -710,7 +710,7 @@ export default function LandingPage() {
       render: (lobs) => (
         <Space size={4} wrap>
           {lobs.map((lob) => (
-            <Tag key={lob} style={{ ...pillStyle, background: lobPillColors[lob] || '#EDEDEB', border: 'none' }}>{lob}</Tag>
+            <Tag key={lob} style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>{lob}</Tag>
           ))}
         </Space>
       ),
@@ -724,7 +724,7 @@ export default function LandingPage() {
           {products.map((name) => {
             const planType = name.replace(/^(Medicare|Medicaid|Commercial|I-SNP|D-SNP|C-SNP)\s+/, '');
             return (
-              <Tag key={name} style={{ ...pillStyle, background: getProductPillColor(name), border: 'none' }}>
+              <Tag key={name} style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>
                 {planType}
               </Tag>
             );
@@ -739,7 +739,7 @@ export default function LandingPage() {
       render: (types) => (
         <Space size={4} wrap>
           {types.map((t) => (
-            <Tag key={t} style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB', border: 'none' }}>
+            <Tag key={t} style={{ ...pillStyle, background: '#EDEDEB', border: 'none' }}>
               {t}
             </Tag>
           ))}
@@ -800,108 +800,107 @@ export default function LandingPage() {
 
       {/* Quick Report Cards — hidden in cardFilters mode since they become inline filters */}
       {layoutMode !== 'cardFilters' && (<>
-      <Title level={3} style={{ marginBottom: 12 }}>Quick Reports</Title>
-
-      <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>Delegate Reports</Text>
+      <Title level={3} style={{ marginBottom: 12 }}>Delegate Reports</Title>
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         {/* Open CAPs card — hidden, keep for later
-        <Card title="Open CAPs" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+        <Card title="Open CAPs" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ header: { padding: '12px 16px' }, body: { padding: '12px 16px' } }}>
           <div
             onClick={() => navigate('/reports/open-caps')}
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #F0EEEC', cursor: 'pointer' }}
           >
-            <Text style={{ color: '#004D99', fontSize: 12 }}>Delegated Entities</Text>
-            <Text strong style={{ fontSize: 12 }}>{entitiesWithOpenCAPs}</Text>
+            <Text style={{ color: '#004D99', fontSize: 14 }}>Delegated Entities</Text>
+            <Text strong style={{ fontSize: 14 }}>{entitiesWithOpenCAPs}</Text>
           </div>
           <div
             onClick={() => navigate('/reports/open-cap-delegations')}
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', cursor: 'pointer' }}
           >
-            <Text style={{ color: '#004D99', fontSize: 12 }}>Delegations</Text>
-            <Text strong style={{ fontSize: 12 }}>{stats.openCAPs}</Text>
+            <Text style={{ color: '#004D99', fontSize: 14 }}>Delegations</Text>
+            <Text strong style={{ fontSize: 14 }}>{stats.openCAPs}</Text>
           </div>
         </Card>
         */}
-        <Card title="Entities by LOB" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+        <Card title="Entities by LOB" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ header: { padding: '12px 16px' }, body: { padding: '12px 16px' } }}>
           {lobDistribution.map((item, i) => (
             <div
               key={item.lob}
               onClick={() => navigate(`/reports/lob/${item.lob.toLowerCase().replace(/\s+/g, '-')}`)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < lobDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
             >
-              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.lob}</Text>
-              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+              <Text style={{ color: '#004D99', fontSize: 14 }}>{item.lob}</Text>
+              <Text strong style={{ fontSize: 14 }}>{item.count}</Text>
             </div>
           ))}
         </Card>
-        <Card title="Entities by Product" size="small" style={{ flex: 1, minWidth: 140, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+        <Card title="Entities by Product" style={{ flex: 1, minWidth: 140, borderRadius: 16 }} styles={{ header: { padding: '12px 16px' }, body: { padding: '12px 16px' } }}>
           {productDistribution.map((item, i) => (
             <div
               key={item.product}
               onClick={() => navigate(`/reports/product/${encodeURIComponent(item.product.toLowerCase().replace(/\s+/g, '-'))}`)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < productDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
             >
-              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.product}</Text>
-              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+              <Text style={{ color: '#004D99', fontSize: 14 }}>{item.product}</Text>
+              <Text strong style={{ fontSize: 14 }}>{item.count}</Text>
             </div>
           ))}
         </Card>
-        <Card title="Entities by Delegation Type" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+        <Card title="Entities by Delegation Type" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ header: { padding: '12px 16px' }, body: { padding: '12px 16px' } }}>
           {typeDistribution.map((item, i) => (
             <div
               key={item.type}
               onClick={() => navigate(`/reports/delegation-type/${item.type.toLowerCase().replace(/\s+/g, '-')}`)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < typeDistribution.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
             >
-              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.type}</Text>
-              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+              <Text style={{ color: '#004D99', fontSize: 14 }}>{item.type}</Text>
+              <Text strong style={{ fontSize: 14 }}>{item.count}</Text>
             </div>
           ))}
         </Card>
       </div>
 
-      <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>Delegation Reports</Text>
+      <Title level={3} style={{ marginBottom: 12 }}>Delegation Reports</Title>
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        <Card title="Delegations by LOB" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+        <Card title="Delegations by LOB" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ header: { padding: '12px 16px' }, body: { padding: '12px 16px' } }}>
           {activeDelegationsByLob.map((item, i) => (
             <div
               key={item.lob}
               onClick={() => navigate(`/reports/active-delegations/lob/${item.lob.toLowerCase().replace(/\s+/g, '-')}`)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < activeDelegationsByLob.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
             >
-              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.lob}</Text>
-              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+              <Text style={{ color: '#004D99', fontSize: 14 }}>{item.lob}</Text>
+              <Text strong style={{ fontSize: 14 }}>{item.count}</Text>
             </div>
           ))}
         </Card>
-        <Card title="Delegations by Product" size="small" style={{ flex: 1, minWidth: 140, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+        <Card title="Delegations by Product" style={{ flex: 1, minWidth: 140, borderRadius: 16 }} styles={{ header: { padding: '12px 16px' }, body: { padding: '12px 16px' } }}>
           {activeDelegationsByProduct.map((item, i) => (
             <div
               key={item.product}
               onClick={() => navigate(`/reports/active-delegations/product/${encodeURIComponent(item.product.toLowerCase().replace(/\s+/g, '-'))}`)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < activeDelegationsByProduct.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
             >
-              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.product}</Text>
-              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+              <Text style={{ color: '#004D99', fontSize: 14 }}>{item.product}</Text>
+              <Text strong style={{ fontSize: 14 }}>{item.count}</Text>
             </div>
           ))}
         </Card>
-        <Card title="Delegations by Type" size="small" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ body: { padding: '8px 12px' } }}>
+        <Card title="Delegations by Type" style={{ flex: 1, minWidth: 120, borderRadius: 16 }} styles={{ header: { padding: '12px 16px' }, body: { padding: '12px 16px' } }}>
           {activeDelegationsByType.map((item, i) => (
             <div
               key={item.type}
               onClick={() => navigate(`/reports/active-delegations/type/${item.type.toLowerCase().replace(/\s+/g, '-')}`)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: i < activeDelegationsByType.length - 1 ? '1px solid #F0EEEC' : 'none', cursor: 'pointer' }}
             >
-              <Text style={{ color: '#004D99', fontSize: 12 }}>{item.type}</Text>
-              <Text strong style={{ fontSize: 12 }}>{item.count}</Text>
+              <Text style={{ color: '#004D99', fontSize: 14 }}>{item.type}</Text>
+              <Text strong style={{ fontSize: 14 }}>{item.count}</Text>
             </div>
           ))}
         </Card>
       </div>
       </>)}
       </>)}
-      <div style={{ marginBottom: 24 }}>
+      {/* Delegated Entities section — hidden for now, report pages have filters */}
+      {false && <div style={{ marginBottom: 24 }}>
             <Title level={3} style={{ margin: '0 0 12px' }}>
               Delegated Entities
             </Title>
@@ -1171,7 +1170,7 @@ export default function LandingPage() {
                 </div>
               </div>
             )}
-      </div>
+      </div>}
       </Col>
 
       {/* Right rail: AI Assistant */}

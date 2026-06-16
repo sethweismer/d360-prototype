@@ -182,7 +182,7 @@ function TableFirstView({ delegate }) {
       title: 'Delegation Type',
       dataIndex: 'delegationType',
       width: 105,
-      render: (t) => <Tag style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB' }}>{t}</Tag>,
+      render: (t) => <Tag style={{ ...pillStyle, background: '#EDEDEB' }}>{t}</Tag>,
     },
     {
       title: 'Status',
@@ -418,7 +418,7 @@ function FlatListView({ delegate }) {
       title: 'Delegation Type',
       dataIndex: 'delegationType',
       width: 105,
-      render: (t) => <Tag style={{ ...pillStyle, background: typePillColors[t] || '#EDEDEB' }}>{t}</Tag>,
+      render: (t) => <Tag style={{ ...pillStyle, background: '#EDEDEB' }}>{t}</Tag>,
     },
     {
       title: 'Status',
@@ -510,7 +510,7 @@ export default function DelegateDetail() {
           </Title>
         </Space>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 24px', marginTop: 4, paddingLeft: 40, alignItems: 'center' }}>
-          <Tag style={{ ...pillStyle, margin: 0, background: entityTypePillColors[delegate.entityType] || '#EDEDEB' }}>
+          <Tag style={{ ...pillStyle, margin: 0, background: '#EDEDEB' }}>
             {delegate.entityType}
           </Tag>
           <Text type="secondary" style={{ fontSize: 15 }}>

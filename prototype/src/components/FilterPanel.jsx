@@ -98,29 +98,6 @@ export default function FilterPanel({ filters, onFilterChange, onClear, productO
           </Button>
         )}
       </Space>
-      {activeFilters.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          {activeFilters.map(([key, value]) => {
-            const values = Array.isArray(value) ? value : [value];
-            return values.map((v) => (
-              <Tag
-                key={`${key}-${v}`}
-                closable
-                onClose={() => {
-                  if (Array.isArray(filters[key])) {
-                    onFilterChange(key, filters[key].filter((x) => x !== v));
-                  } else {
-                    onFilterChange(key, '');
-                  }
-                }}
-                style={{ marginBottom: 4 }}
-              >
-                {v}
-              </Tag>
-            ));
-          })}
-        </div>
-      )}
     </div>
   );
 }
