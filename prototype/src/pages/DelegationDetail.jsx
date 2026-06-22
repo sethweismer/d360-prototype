@@ -161,6 +161,7 @@ export default function DelegationDetail() {
             showHeader={false}
             pagination={false}
             size="small"
+            showSorterTooltip={false}
             rowKey="label"
             dataSource={[
               { label: 'LOB', value: product.lob },

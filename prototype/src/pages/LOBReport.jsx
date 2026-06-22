@@ -220,6 +220,7 @@ export default function LOBReport() {
         <Table
           dataSource={filteredData}
           columns={columns}
+          showSorterTooltip={false}
           rowKey="id"
           size="small"
           pagination={{ pageSize: 20, showSizeChanger: true, pageSizeOptions: [10, 20, 50] }}

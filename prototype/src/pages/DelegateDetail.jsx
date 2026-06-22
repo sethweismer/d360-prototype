@@ -257,7 +257,8 @@ function TableFirstView({ delegate }) {
                   <Table
                     dataSource={product.delegations}
                     columns={columns}
-                    rowKey="id"
+                    showSorterTooltip={false}
+          rowKey="id"
                     size="small"
                     pagination={false}
                     tableLayout="fixed"
@@ -463,6 +464,7 @@ function FlatListView({ delegate }) {
         <Table
           dataSource={flatData}
           columns={columns}
+          showSorterTooltip={false}
           rowKey="id"
           size="small"
           pagination={false}

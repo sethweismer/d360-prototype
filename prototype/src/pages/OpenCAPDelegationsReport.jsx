@@ -156,6 +156,7 @@ export default function OpenCAPDelegationsReport() {
         <Table
           dataSource={reportData}
           columns={columns}
+          showSorterTooltip={false}
           rowKey="id"
           size="small"
           pagination={{ pageSize: 20, showSizeChanger: true, pageSizeOptions: [10, 20, 50] }}
